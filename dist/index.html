@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0c141b">
+  <meta name="description" content="一个简洁的 2D 海空战沙盘。部署舰队，管理传感器，指挥海空交战。">
+  <title>Sea Power · 海空战模拟平台</title>
+  <link rel="icon" href="./favicon.svg" type="image/svg+xml"><link rel="stylesheet" href="./style.css">
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="./" aria-label="Sea Power 首页"><svg viewBox="0 0 36 36" aria-hidden="true"><circle cx="18" cy="18" r="11"/><path d="M18 1v9m0 16v9M1 18h9m16 0h9M18 11l4 12-4-3-4 3z"/></svg><span>SEA POWER<small>海空战模拟平台</small></span><span class="version">2D / 01</span></a>
+    <div class="clock-control"><span class="clock" id="clock">00:00:00</span><button id="play" class="play" title="开始或暂停推演（空格）" aria-label="开始推演">▶</button><div class="time-speeds" aria-label="时间倍率"><button data-speed="1">1×</button><button data-speed="10">10×</button><button data-speed="30" class="active">30×</button><button data-speed="120">120×</button></div></div>
+    <div class="header-actions"><button id="save" title="保存到当前浏览器">保存</button><button id="load">载入</button><button id="help" class="help-btn" aria-label="操作指南">?</button></div>
+  </header>
+  <div class="missionbar"><div><span class="eyebrow">OPERATION</span><button id="scenario" class="scenario-name">海峡交锋 <span>⌄</span></button><span id="mission-subtitle" class="mission-subtitle">联合编队 · 对海与防空</span></div><div class="mission-status"><span class="dot"></span><span id="phase">部署阶段</span><span class="divider"></span><label class="weather-label">海况 <select id="weather" aria-label="海况"><option value="clear">晴朗 / 2 级</option><option value="storm">风暴 / 6 级</option></select></label></div></div>
+  <main class="workspace">
+    <aside class="fleet-panel">
+      <div class="panel-tabs"><button id="fleet-tab" class="active">蓝方编队 <span id="fleet-count">3</span></button><button id="contacts-tab">接触 <span id="contact-count">0</span></button></div>
+      <div class="fleet-summary"><span id="list-heading">作战单位</span><span id="budget">部署点 38</span></div>
+      <div id="unit-list" class="unit-list"></div>
+      <div class="fleet-bottom"><button id="deploy" class="outline wide">＋ 部署单位</button><p>海上、空中与水下<br>一张海图，统一指挥。</p><div class="legend"><span><i class="blue-symbol"></i> 蓝方</span><span><i class="red-symbol"></i> 红方接触</span></div></div>
+    </aside>
+    <section class="map-panel" aria-label="战术海图">
+      <canvas id="map" tabindex="0" aria-label="2D 战术海图：点击单位选择，右键海域设置航点；也可使用面板的航线按钮。"></canvas>
+      <div class="map-top"><div class="map-title">战术海图 <span>2D</span></div><div class="layers"><button data-layer="sensors" class="active" title="切换雷达与声呐探测范围">探测圈</button><button data-layer="trails" title="显示历史航迹">航迹</button><button data-layer="grid" class="active" title="切换坐标网格">网格</button></div></div>
+      <div id="briefing" class="briefing"><span class="eyebrow">MISSION BRIEF</span><h1 id="brief-title">海峡交锋</h1><p id="brief-text"></p><div class="brief-footer"><span>01 部署 &nbsp; / &nbsp; 02 探测 &nbsp; / &nbsp; 03 交战</span><button id="begin" class="primary">开始推演 ↗</button></div></div>
+      <div id="result" class="result hidden"></div>
+      <div id="mode-banner" class="mode-banner hidden"></div>
+      <div class="map-bottom"><span id="coordinates">X 120.0 &nbsp; Y 85.0 nm</span><span class="map-hint" id="map-hint">点击选择 · 右键航点 · 滚轮缩放 · 拖动平移</span><div class="zoom-controls"><button id="zoom-out" aria-label="缩小海图">−</button><button id="zoom-fit" title="显示整个海域">全图</button><button id="zoom-in" aria-label="放大海图">＋</button></div></div>
+    </section>
+    <aside id="inspector" class="inspector"></aside>
+  </main>
+  <footer class="event-panel"><div class="event-header"><span class="eyebrow">TACTICAL LOG</span><span>作战记录</span><button id="export" title="导出当前战局 JSON">导出战局 ↗</button></div><div id="events" class="events" aria-live="polite"></div></footer>
+  <div id="toast" class="toast hidden" role="status"></div>
+  <dialog id="dialog"><div id="dialog-content"></div></dialog>
+  <input type="file" id="import-file" accept="application/json,.json" hidden>
+  <script type="module" src="./app.js"></script>
+</body>
+</html>
