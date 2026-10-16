@@ -84,9 +84,9 @@ test('所有型号的所有挂载可保存载入，库存与支持状态不能�
   const s=setup(),base=add(s,'cvn_ford');running(s);launchDeck(s,base.id,'f35c');const original=JSON.parse(serialize(s));
   for(const mutate of [r=>r.units[0].airwing.f35c=20,r=>r.units[0].fuelSupply=1,r=>r.units[0].loadout='bad',r=>r.units.at(-1).originDeck='u999',r=>r.units[0].refuelTarget='u999']){const raw=structuredClone(original);mutate(raw);assert.throws(()=>deserialize(JSON.stringify(raw)));}
 });
-test('v3 存档缺少新武器与支持字段时安全迁移到 v5',()=>{
+test('v3 存档缺少新武器与支持字段时安全迁移到 v6',()=>{
   const raw=JSON.parse(serialize(createState('strait')));raw.version=3;for(const u of raw.units){for(const key of ['gun','asroc','pgm','atgm'])delete u.weapons[key];for(const key of ['loadout','airwing','deckReady','deckBased','originDeck','fuelSupply','refuelTarget','supplyTarget','depth'])delete u[key];}
-  const s=deserialize(JSON.stringify(raw));assert.equal(s.version,5);assert.equal(s.units[0].weapons.gun,0);assert.ok(s.paused);
+  const s=deserialize(JSON.stringify(raw));assert.equal(s.version,6);assert.equal(s.units[0].weapons.gun,0);assert.ok(s.paused);
 });
 test('现代沙盘长时间推演保持预算、库存与引用，红方自动放飞预警与战斗机',()=>{
   const s=createState('modernlab');start(s);const carrier=s.units.find(u=>u.type==='cvn_ford');launchDeck(s,carrier.id,'e2d');for(let i=0;i<6;i++)step(s,300);

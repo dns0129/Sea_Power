@@ -1,27 +1,43 @@
 // Deterministic arena commander. Decisions use friendly state, public terrain and usable contacts.
+import {getBattleTheatre,factionName} from './battle-theatres.js';
 export const AI_DOCTRINES={
   balanced:{name:'均衡协同',description:'兼顾搜索、支援和适中距离交战。',standoff:.72,speed:.65},
   aggressive:{name:'积极进攻',description:'更快接敌，接近后再集中火力。',standoff:.60,speed:.85},
   cautious:{name:'谨慎防御',description:'优先支援与较远距离交战，保留较多防空弹。',standoff:.86,speed:.5},
 };
 export const AUTO_PRESETS=[
-  {id:'surface',name:'海空编队对抗',description:'相同现代编队镜像部署，包含护航舰、制空、海上攻击与预警机。'},
-  {id:'carrier',name:'航母航空对抗',description:'镜像航母编队、舰载航空队、加油机与航空补给舰。'},
-  {id:'asw',name:'反潜搜索对抗',description:'镜像潜艇、反潜护航舰、巡逻机与吊放声呐直升机。'},
-  {id:'empty',name:'空白部署',description:'双方各 600 部署点，自行选择单位、挂载与初始位置。'},
+  {id:'surface',name:'美中海空编队',description:'500 公里起始：伯克级对 055／052DL，配备本国制空、反舰、电子战、预警与加油机。'},
+  {id:'carrier',name:'美中航母航空',description:'500 公里起始：福特级对福建舰，包含各自舰载航空队、护航舰、加油机与补给舰。'},
+  {id:'asw',name:'美中反潜搜索',description:'500 公里起始：弗吉尼亚级对 093 型，搭配本国反潜舰、巡逻机与反潜直升机。'},
+  {id:'empty',name:'美中空白部署',description:'双方各 600 点，在各自前沿线后方选择本国舰机与通用岸基设施，保持至少 500 公里起始距离。'},
 ];
+// [type, distance behind the side's leading station, lateral offset, optional loadout].
+// The leading combat pair is exactly 500 km apart; every other station is behind it.
 const FORCES={
-  surface:[['ddg052d',85,90],['ffg054a',82,104],['cor056a',76,93],['j10c',90,64],['jh7a',86,73],['kj500',64,66]],
-  carrier:[['cvn_ford',65,92],['ddg_burke3',78,86],['ffg_mogami',65,108],['kc46a',49,66],['aor_supply',54,95]],
-  asw:[['ssn_virginia',80,100],['ffg_mogami',90,90],['p8a',80,75],['mh60r',95,108],['cor056a',84,112]],
-  empty:[],
+  surface:{
+    blue:[['ddg_burke3',0,0],['ddg_burke2a',8,16],['f22a',6,-22],['fa18e',9,27,'naval'],['ea18g',18,32,'sead'],['e7',28,-30],['kc46a',38,-13],['p8a',16,43]],
+    red:[['ddg055',0,0],['ddg052dl',8,16],['j20',6,-22],['j16',9,27,'naval'],['j16d',18,32,'sead'],['kj500',28,-30],['yy20',38,-13],['kq200',16,43]],
+  },
+  carrier:{
+    blue:[['ddg_burke3',0,0],['cvn_ford',16,0],['ddg_burke2a',8,20],['aor_supply',28,12],['kc46a',38,-22],['fa18e',8,30,'naval']],
+    red:[['ddg055',0,0],['cv_fujian',16,0],['ddg052dl',8,20],['aor901',28,12],['yy20',38,-22],['j16',8,30,'naval']],
+  },
+  asw:{
+    blue:[['ddg_burke2a',0,0],['ssn_virginia',8,12],['p8a',6,-20,'asw'],['mh60r',10,28,'asw']],
+    red:[['ffg054b',0,0],['ssn093',8,12],['kq200',6,-20,'asw'],['z20f',10,28,'asw']],
+  },
+  empty:{blue:[],red:[]},
 };
 const clone=value=>JSON.parse(JSON.stringify(value));
 const blankStats=()=>({shots:0,damageDealt:0,damagePoints:0,interceptions:0,sorties:0,spent:{}});
 export function automationSettings(preset='surface'){return {enabled:true,preset,blueDoctrine:'balanced',redDoctrine:'balanced',timeLimit:3600,seed:712301,started:false,startedAt:0,tickRemainder:0,finishedAt:null,winner:null,reason:'',deployment:null,stats:{blue:blankStats(),red:blankStats()},timeline:[]};}
 export function populateAutoPreset(s,preset,api){
   if(!Object.hasOwn(FORCES,preset))preset='surface';s.automation=automationSettings(preset);
-  for(const side of ['blue','red'])for(const [type,x,y] of FORCES[preset])api.spawn(s,type,side,side==='blue'?x:240-x,y);
+  const theatre=getBattleTheatre(s);s.automation.timeLimit=7200;
+  for(const side of ['blue','red'])for(const [type,behind,lateral,loadout] of FORCES[preset][side]){
+    const anchor=theatre.anchors[side],u=api.spawn(s,type,side,anchor.x+(side==='blue'?-behind:behind),anchor.y+lateral);
+    const row=api.types[type].loadouts?.find(l=>l.id===loadout);if(row){u.loadout=row.id;for(const key of Object.keys(u.weapons))u.weapons[key]=row.weapons[key]||0;}
+  }
 }
 export function configureAutomation(s,options={}){
   if(!options||typeof options!=='object'||Array.isArray(options))return {ok:false,error:'AI 设置无效'};
@@ -67,7 +83,12 @@ function navigate(s,u,point,speed,text,api){
   if(u.ai.goal&&api.distance(u.ai.goal,goal)<4&&u.route.length&&s.time-u.ai.goalTime<60)return;
   const route=air?[goal]:arenaRoute(s,u,goal,api);u.ai.goal={...goal};u.ai.goalTime=s.time;if(route)u.route=route;else{u.route=[];order(s,u,'航路受阻，等待重新规划',api);}
 }
-function searchPoint(s,u,api){const w=api.world(s),points=[[.5,.53],[.64,.58],[.38,.66],[.65,.32],[.36,.40]],p=points[u.ai.searchIndex%points.length],goal={x:w.width*p[0],y:w.height*p[1]};if(api.distance(u,goal)<4){u.ai.searchIndex++;const next=points[u.ai.searchIndex%points.length];return {x:w.width*next[0],y:w.height*next[1]};}return goal;}
+function searchPoint(s,u,api){
+  const w=api.world(s),deepSearch=getBattleTheatre(s)&&api.types[u.type].domain==='air'&&api.types[u.type].sonar>0;
+  // Public search sectors, mirrored by side; no enemy coordinates are used.
+  const forward=u.side==='blue'?.80:.20,points=deepSearch?[[.5,.53],[forward,.54],[forward,.38],[.5,.65]]:[[.5,.53],[.64,.58],[.38,.66],[.65,.32],[.36,.40]],p=points[u.ai.searchIndex%points.length],goal={x:w.width*p[0],y:w.height*p[1]};
+  if(api.distance(u,goal)<4){u.ai.searchIndex++;const next=points[u.ai.searchIndex%points.length];return {x:w.width*next[0],y:w.height*next[1]};}return goal;
+}
 function ownAnchor(s,u,api){const own=s.units.filter(v=>v.side===u.side&&v.hp>0&&!v.exited&&api.types[v.type].domain==='surface'&&!api.types[v.type].support&&!api.types[v.type].deck);if(!own.length)return u.ai.anchor;return {x:own.reduce((n,v)=>n+v.x,0)/own.length,y:own.reduce((n,v)=>n+v.y,0)/own.length};}
 function behind(s,u,anchor,nm,api){const w=api.world(s),dx=anchor.x-w.width/2,dy=anchor.y-w.height/2,d=Math.hypot(dx,dy)||1;return inWorld(s,{x:anchor.x+dx/d*nm,y:anchor.y+dy/d*nm},api);}
 function selectLoadout(s,type,contacts,own,api){const t=api.types[type],hasCAP=own.some(v=>v.hp>0&&api.airborne(v)&&['fighter','navalAir'].includes(api.types[v.type].category)&&v.weapons.aam>0&&v.loadout!=='naval');
@@ -144,7 +165,7 @@ function canStillAttack(s,side,api){return s.units.some(u=>{
 });}
 export function finishAutomation(s,reason,api,winner=null){const a=s.automation;if(!a?.started||s.phase==='ended')return;
   if(!winner){const delta=a.stats.blue.damagePoints-a.stats.red.damagePoints;winner=Math.abs(delta)<.5?'draw':delta>0?'blue':'red';}
-  a.winner=winner;a.reason=reason;a.finishedAt=s.time;s.phase='ended';s.paused=true;s.result=winner==='blue'?'victory':winner==='red'?'defeat':'draw';event(s,'both',`${winner==='draw'?'双方平局':winner==='blue'?'蓝方获胜':'红方获胜'}：${reason}`);api.log(s,a.timeline.at(-1).message,'combat');
+  a.winner=winner;a.reason=reason;a.finishedAt=s.time;s.phase='ended';s.paused=true;s.result=winner==='blue'?'victory':winner==='red'?'defeat':'draw';event(s,'both',`${winner==='draw'?'双方平局':factionName(s,winner)+'获胜'}：${reason}`);api.log(s,a.timeline.at(-1).message,'combat');
 }
 export function updateAutoOutcome(s,api){if(!s.automation?.started||s.phase!=='running')return;const a=s.automation;
   if(s.time-a.startedAt>=a.timeLimit){finishAutomation(s,'达到对战时限，按实际有效毁伤部署点结算',api);return;}
@@ -166,7 +187,7 @@ export function restoreAutomation(raw,s,api){
   if(![null,'blue','red','draw'].includes(raw.winner)||s.phase==='ended'&&!raw.winner||s.phase!=='ended'&&raw.winner!==null)throw Error('对战结果无效');a.winner=raw.winner;
   if(raw.finishedAt!==null&&!validNumber(raw.finishedAt,a.startedAt,s.time))throw Error('对战结束时间无效');a.finishedAt=raw.finishedAt;if(s.phase==='ended'&&a.finishedAt!==s.time||s.phase!=='ended'&&a.finishedAt!==null)throw Error('对战结束时间与阶段不一致');
   if(s.phase==='ended'&&s.result!==(a.winner==='blue'?'victory':a.winner==='red'?'defeat':'draw')||s.phase!=='ended'&&s.result!==null)throw Error('对战胜负记录不一致');a.reason=typeof raw.reason==='string'?raw.reason.slice(0,160):'';
-  if(raw.deployment!==null){if(typeof raw.deployment!=='string'||raw.deployment.length>450000)throw Error('初始部署快照无效');const saved=JSON.parse(raw.deployment);if(saved.phase!=='setup'||saved.scenario!==s.scenario||saved.automation?.started!==false||saved.automation.deployment!==null)throw Error('初始部署快照无效');api.validateDeployment(raw.deployment);a.deployment=raw.deployment;}else if(a.started)throw Error('自动对战缺少初始部署');
+  if(raw.deployment!==null){if(typeof raw.deployment!=='string'||raw.deployment.length>450000)throw Error('初始部署快照无效');const saved=JSON.parse(raw.deployment);if(saved.phase!=='setup'||saved.scenario!==s.scenario||(saved.mapId||null)!==(s.mapId||null)||saved.automation?.started!==false||saved.automation.deployment!==null)throw Error('初始部署快照无效');api.validateDeployment(raw.deployment);a.deployment=raw.deployment;}else if(a.started)throw Error('自动对战缺少初始部署');
   for(const side of ['blue','red']){const st=raw.stats?.[side];if(!st)throw Error('对战统计缺失');for(const key of ['shots','damageDealt','damagePoints','interceptions','sorties']){if(!validNumber(st[key],0,1e8)||!['damageDealt','damagePoints'].includes(key)&&!Number.isInteger(st[key]))throw Error('对战统计无效');a.stats[side][key]=st[key];}a.stats[side].spent={};for(const [key,n] of Object.entries(st.spent||{})){if(!Object.hasOwn(api.weapons,key)&&key!=='ciws'||!Number.isInteger(n)||n<0||n>1e8)throw Error('弹药统计无效');a.stats[side].spent[key]=n;}}
   if(!Array.isArray(raw.timeline)||raw.timeline.length>400)throw Error('对战记录无效');a.timeline=raw.timeline.map(e=>{if(!['blue','red','both'].includes(e.side)||typeof e.message!=='string'||e.message.length>200||!validNumber(e.time,0,Math.max(0,s.time-a.startedAt)))throw Error('对战记录无效');return {time:e.time,side:e.side,message:e.message};});
   for(const u of s.units){if(!u.ai)continue;const v=u.ai;if(typeof v.order!=='string'||v.order.length>160||!api.inBounds(v.anchor,s)||v.goal!==null&&!api.inBounds(v.goal,s)||!Number.isInteger(v.searchIndex)||!validNumber(v.searchIndex,0,1e8)||!validNumber(v.goalTime,0,s.time)||!validNumber(v.dipUntil,0,1e8)||!validNumber(v.nextDip,0,1e8))throw Error('AI 指令状态无效');u.ai={anchor:{x:v.anchor.x,y:v.anchor.y},order:v.order,searchIndex:v.searchIndex,goal:v.goal?{x:v.goal.x,y:v.goal.y}:null,goalTime:v.goalTime,dipUntil:v.dipUntil,nextDip:v.nextDip};}

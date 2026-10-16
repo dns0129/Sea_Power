@@ -1,8 +1,10 @@
-import {AUTO_PRESETS,AI_DOCTRINES,populateAutoPreset,configureAutomation,beginAutomation,commandAutomation,hasCombatPlatform,updateAutoOutcome,finishAutomation,automationReport,restoreAutomation,recordAutoShot,recordAutoDamage,recordAutoIntercept,recordAutoSortie} from './auto-commander.js';
+import {AUTO_PRESETS,AI_DOCTRINES,populateAutoPreset,configureAutomation,beginAutomation,commandAutomation,hasCombatPlatform,updateAutoOutcome,finishAutomation,automationReport,restoreAutomation,recordAutoShot,recordAutoDamage,recordAutoIntercept,recordAutoSortie} from './auto-commander.js?v=0.6.0';
 export {AUTO_PRESETS,AI_DOCTRINES};
 import {buildModernCatalog} from './modern-catalog.js';
 import {geographicMap,geoToWorld,REAL_MAPS} from './geography.js';
 import {seaRoute} from './navigation.js';
+import {getBattleTheatre,factionName,inDeploymentZone,nearestSeparationKm} from './battle-theatres.js';
+export {getBattleTheatre,factionName};
 import {HISTORICAL_SCENARIOS,initializeHistorical,historicalOrder,historicalObjectives,updateHistorical} from './historical-missions.js';
 export {historicalObjectives};
 // 原创确定性游戏模型。距离：海里；速度：节；推演时间：秒。
@@ -65,7 +67,7 @@ export const TYPES={
 };
 Object.assign(TYPES,buildModernCatalog(platform));
 export const SCENARIOS={
-  autobattle:{name:'AI 自动对战平台',subtitle:'双方自主指挥 · 部署后观战 · 对战战报',brief:'先编辑蓝红双方单位和任务挂载，选择作战风格、时限与种子，再开始双方 AI 对战。AI 自主搜索、接敌、出动与补给；按歼灭或时限内有效毁伤结算。观战全局信息不提供给 AI。',budget:600},
+  autobattle:{name:'AI 自动对战平台',subtitle:'美中编队 · 500 公里起始 · 双方自主指挥',brief:'美方（蓝）与中方（红）从相隔 500 公里的前沿阵位开始搜索。双方各 600 部署点，只可在各自后方部署本国舰机；自定义最近间距至少 500 公里。发现、识别和武器射程决定实际开火时机。虚构演习海域，按歼灭或时限内有效毁伤结算，观战信息不提供给 AI。',budget:600},
   modernlab:{name:'现代装备试验场',subtitle:'真实型号 · 航母航空 · 挂载与后勤',brief:'双方各 600 部署点，航母已包含缩编航空队。选择航母放飞舰载机，或打开装备库按任务选型。尝试制空、反舰、反潜、加油与补给，没有强制胜负。',budget:600},
   ...HISTORICAL_SCENARIOS,
   strait:{name:'海峡交锋',subtitle:'联合编队 · 侦察与防空',brief:'红方舰队与攻击机接近海峡。用空中雷达建立航迹，经数据链引导对舰打击；舰载雷达对水面目标受地平线限制。摧毁全部红方战斗单位获胜。',budget:100},
@@ -75,8 +77,9 @@ export const SCENARIOS={
 };
 export const distance=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
 export const bearing=(a,b)=>(Math.atan2(b.x-a.x,a.y-b.y)*180/Math.PI+360)%360;
-export const worldFor=s=>geographicMap(s)||WORLD;
-export const landFor=s=>geographicMap(s)?.land||LAND;
+export const worldFor=s=>getBattleTheatre(s)||geographicMap(s)||WORLD;
+export const landFor=s=>getBattleTheatre(s)?.land||geographicMap(s)?.land||LAND;
+export function canDeployType(s,type,side){const t=TYPES[type],theatre=getBattleTheatre(s);return !!t&&['blue','red'].includes(side)&&(!theatre||t.country===theatre.factions[side].country||!t.model&&t.domain==='land');}
 export const freeDeploy=s=>['sandbox','modernlab','autobattle'].includes(s.scenario);
 export const isHistorical=s=>Object.hasOwn(HISTORICAL_SCENARIOS,s.scenario);
 export function inLand(p,s){return landFor(s).some(poly=>{let inside=false;for(let i=0,j=poly.length-1;i<poly.length;j=i++){const [xi,yi]=poly[i],[xj,yj]=poly[j];if((yi>p.y)!==(yj>p.y)&&p.x<(xj-xi)*(p.y-yi)/(yj-yi)+xi)inside=!inside;}return inside;});}
@@ -100,7 +103,7 @@ export const createAutoBattle=(preset='surface')=>createState('autobattle',prese
 export function configureAutoBattle(s,options={}){if(s.phase!=='setup'||!freeDeploy(s)||isHistorical(s))return {ok:false,error:'请在双方可部署的沙盘部署阶段配置 AI 对战'};return configureAutomation(s,options);}
 export function startAutoBattle(s,options={}){const r=configureAutoBattle(s,options);return r.ok?start(s):r;}
 export function stopAutoBattle(s){if(!isAutoBattle(s)||s.phase!=='running')return {ok:false,error:'当前没有进行中的 AI 对战'};finishAutomation(s,'用户结束对战，按已发生的有效毁伤结算',autoAPI());return {ok:true};}
-export const getBattleReport=s=>automationReport(s);
+export function getBattleReport(s){const report=automationReport(s);if(!report)return null;const theatre=getBattleTheatre(s);if(theatre){report.theatre={id:theatre.id,name:theatre.name,initialSeparationKm:theatre.initialSeparationKm,factions:{blue:theatre.factions.blue.name,red:theatre.factions.red.name}};const initial=s.automation.deployment?JSON.parse(s.automation.deployment).units:s.units;report.initialDistanceKm=nearestSeparationKm(initial);}return report;}
 export function restartAutoBattle(s){if(!isAutoBattle(s))throw Error('当前不是自动对战');if(!s.automation.deployment){const copy=deserialize(serialize(s));copy.paused=true;return copy;}return deserialize(s.automation.deployment);}
 const missionAPI=()=>({spawn,route:missionRoute,log,types:TYPES});
 export const issueMissionOrder=(s,key)=>historicalOrder(s,key,missionAPI());
@@ -118,7 +121,7 @@ export function sensorRange(s,u,domain='air',altitude='medium'){
   return Math.min(TYPES[u.type].radar*(s.weather==='storm'?.78:1)*(u.hp<TYPES[u.type].hp*.4?.65:1),2.23*(Math.sqrt(heightOf(u))+Math.sqrt(domain==='air'?ALTITUDES[altitude].height:20)));
 }
 function makeUnit(s,type,side,x,y){const t=TYPES[type],n=++s.nextId;return {
-  id:`u${n}`,type,side,name:`${side==='blue'?'蓝':'红'}${t.code}-${String(n).padStart(2,'0')}`,x,y,hp:t.hp,
+  id:`u${n}`,type,side,name:`${getBattleTheatre(s)?side==='blue'?'美':'中':side==='blue'?'蓝':'红'}${t.code}-${String(n).padStart(2,'0')}`,x,y,hp:t.hp,
   speed:t.domain==='air'?(t.rotary?0:Math.round(t.speed*.65)):Math.round(t.speed*.55),heading:side==='blue'?90:270,
   radar:(side==='red'||t.role==='awacs'||type==='awacs')&&t.radar>0,sonar:t.sonar>0,esm:t.esm>0,datalink:true,jamming:false,altitude:t.altitude||'medium',
   autoDefense:true,autoEngage:side==='red',samReserve:Math.floor(t.weapons.sam*.25),loadout:t.loadouts?.[0].id||null,weapons:ammo(t.loadouts?.[0].weapons||t.weapons),ciws:t.ciws,decoys:t.decoys,
@@ -127,7 +130,7 @@ function makeUnit(s,type,side,x,y){const t=TYPES[type],n=++s.nextId;return {
 function spawn(s,type,side,x,y){const u=makeUnit(s,type,side,x,y);s.units.push(u);s[side==='blue'?'budget':'redBudget']-=TYPES[type].cost;return u;}
 export function createState(scenario='strait',autoPreset='surface'){
   if(!Object.hasOwn(SCENARIOS,scenario))scenario='strait';
-  const s={version:5,automation:null,mapId:SCENARIOS[scenario].mapId||null,scenario,phase:'setup',paused:true,time:0,nextId:0,nextMissile:0,seed:712301,budget:SCENARIOS[scenario].budget,redBudget:SCENARIOS[scenario].budget,weather:'clear',units:[],missiles:[],contacts:{blue:{},red:{}},events:[],effects:[],result:null,sensorClock:0,aiClock:0};
+  const s={version:6,automation:null,mapId:scenario==='autobattle'?'uscn500':SCENARIOS[scenario].mapId||null,scenario,phase:'setup',paused:true,time:0,nextId:0,nextMissile:0,seed:712301,budget:SCENARIOS[scenario].budget,redBudget:SCENARIOS[scenario].budget,weather:'clear',units:[],missiles:[],contacts:{blue:{},red:{}},events:[],effects:[],result:null,sensorClock:0,aiClock:0};
   if(scenario==='autobattle'){populateAutoPreset(s,autoPreset,autoAPI());}
   else if(isHistorical(s)){initializeHistorical(s,missionAPI());}
   else if(scenario==='modernlab'){
@@ -152,6 +155,8 @@ export function addUnit(s,type,side,p){
   if(s.phase!=='setup')return {ok:false,error:'只可在部署阶段添加单位'};
   if(isHistorical(s))return {ok:false,error:'历史任务使用固定兵力，不能额外部署'};
   if(!Object.hasOwn(TYPES,type)||!['blue','red'].includes(side))return {ok:false,error:'无效单位'};
+  if(!canDeployType(s,type,side))return {ok:false,error:`${factionName(s,side)}只能部署本国型号或通用岸基设施`};
+  if(getBattleTheatre(s)&&!inDeploymentZone(s,side,p||{}))return {ok:false,error:'请部署在本方前沿线后方，保持双方起始间距至少 500 公里'};
   if(side==='red'&&!freeDeploy(s))return {ok:false,error:'本剧本仅支持部署蓝方'};
   if(s.units.length>=60)return {ok:false,error:'最多部署 60 个单位'};
   if(!validPlacement(type,p,s))return {ok:false,error:TYPES[type].domain==='land'?'岸基单位必须部署在陆地上':'请选择海域内的有效部署位置'};
@@ -484,14 +489,18 @@ function number(v,min,max,fallback){if(v===undefined&&fallback!==undefined)retur
 function point(p,s){if(!inBounds(p,s))throw Error('战局坐标无效');return {x:p.x,y:p.y};}
 export function deserialize(text){
   if(typeof text!=='string'||text.length>1000000)throw Error('战局文件过大');const raw=JSON.parse(text),legacy=raw.version===1;
-  if(![1,2,3,4,5].includes(raw.version)||!Object.hasOwn(SCENARIOS,raw.scenario)||!['setup','running','ended'].includes(raw.phase)||!Array.isArray(raw.units)||raw.units.length>60)throw Error('战局格式无效');
+  if(![1,2,3,4,5,6].includes(raw.version)||!Object.hasOwn(SCENARIOS,raw.scenario)||!['setup','running','ended'].includes(raw.phase)||!Array.isArray(raw.units)||raw.units.length>60)throw Error('战局格式无效');
   if(raw.version<5&&raw.scenario==='autobattle')throw Error('旧存档不支持自动对战');
   const s=createState(raw.scenario);s.units=[];s.events=[];s.contacts={blue:{},red:{}};s.missiles=[];
+  const expectedMap=SCENARIOS[raw.scenario].mapId||null;
+  if(!isHistorical(s)&&raw.mapId!=null&&raw.mapId!==expectedMap&&!(raw.version>=6&&raw.scenario==='autobattle'&&raw.mapId==='uscn500'))throw Error('战局海域无效');
+  s.mapId=raw.scenario==='autobattle'&&raw.version>=6?raw.mapId||null:expectedMap;
   s.time=number(raw.time,0,1e8);s.budget=number(raw.budget,0,1000);s.redBudget=number(raw.redBudget,0,1000,SCENARIOS[raw.scenario].budget);
   s.phase=raw.phase;s.paused=true;s.seed=number(raw.seed,0,4294967295,712301);s.weather=raw.weather==='storm'?'storm':'clear';s.sensorClock=number(raw.sensorClock,0,3,0);s.aiClock=number(raw.aiClock,0,8,0);s.result=['victory','defeat','draw'].includes(raw.result)?raw.result:null;
   const ids=new Set();
   for(const r of raw.units){
     if(!Object.hasOwn(TYPES,r.type)||!['blue','red'].includes(r.side)||!/^u\d{1,5}$/.test(r.id)||ids.has(r.id)||!validPlacement(r.type,r,s)||!Array.isArray(r.route)||r.route.length>16)throw Error('战局单位参数无效');
+    if(!canDeployType(s,r.type,r.side)||s.phase==='setup'&&!inDeploymentZone(s,r.side,r))throw Error('美中对战阵营或初始部署区无效');
     if(raw.version<4&&TYPES[r.type].model)throw Error('旧存档不支持现代型号');
     ids.add(r.id);const t=TYPES[r.type],u=makeUnit(s,r.type,r.side,r.x,r.y);u.id=r.id;u.exited=r.exited===true;u.missionRole=['escape','transport','flagship','mainTarget','raider'].includes(r.missionRole)?r.missionRole:null;
     for(const [key,max] of [['hp',t.hp],['speed',t.speed],['heading',360]])u[key]=number(r[key],0,max);
@@ -539,7 +548,7 @@ export function deserialize(text){
   s.nextMissile=Math.max(number(raw.nextMissile,0,1e7,0),0,...s.missiles.map(m=>Number(m.id.slice(1))));
   // 保留失联位置和原始时间。载入不触发扫描，不恢复失去的目标。
   for(const side of ['blue','red'])for(const [id,c] of Object.entries(raw.contacts?.[side]||{})){
-    const target=unitById(s,id);if(!target||target.side===side||!['track','search','bearing'].includes(c.quality)||!finite(c.x,-10,250)||!finite(c.y,-10,180)||!finite(c.time,0,s.time))continue;
+    const target=unitById(s,id);if(!target||target.side===side||!['track','search','bearing'].includes(c.quality)||!finite(c.x,-10,worldFor(s).width+10)||!finite(c.y,-10,worldFor(s).height+10)||!finite(c.time,0,s.time))continue;
     const observations={};for(const [observerId,o] of Object.entries(c.observations||{})){const observer=unitById(s,observerId);if(observer?.side===side&&finite(o.time,0,s.time)&&['track','search','bearing'].includes(o.quality)&&['雷达','声呐','目视','电子支援'].includes(o.source))observations[observerId]={quality:o.quality,source:o.source,time:o.time};}
     s.contacts[side][id]={id,x:c.x,y:c.y,time:c.time,progress:finite(c.progress,0,30)?c.progress:0,quality:c.quality,source:['雷达','声呐','目视','电子支援'].includes(c.source)?c.source:'电子支援',observations,domain:['air','land','sub','surface'].includes(c.domain)?c.domain:domainOf(target),altitude:Object.hasOwn(ALTITUDES,c.altitude)?c.altitude:'medium',emitting:c.emitting===true,label:`${domainName[c.domain]||'未知'}接触 ${id.slice(1).padStart(2,'0')}`};
   }
