@@ -1,18 +1,18 @@
 // Deterministic arena commander. Decisions use friendly state, public terrain and usable contacts.
-import {getBattleTheatre,factionName} from './battle-theatres.js';
+import {getBattleTheatre,factionName} from './battle-theatres.js?v=0.6.1';
 export const AI_DOCTRINES={
   balanced:{name:'均衡协同',description:'兼顾搜索、支援和适中距离交战。',standoff:.72,speed:.65},
   aggressive:{name:'积极进攻',description:'更快接敌，接近后再集中火力。',standoff:.60,speed:.85},
   cautious:{name:'谨慎防御',description:'优先支援与较远距离交战，保留较多防空弹。',standoff:.86,speed:.5},
 };
 export const AUTO_PRESETS=[
-  {id:'surface',name:'美中海空编队',description:'500 公里起始：伯克级对 055／052DL，配备本国制空、反舰、电子战、预警与加油机。'},
-  {id:'carrier',name:'美中航母航空',description:'500 公里起始：福特级对福建舰，包含各自舰载航空队、护航舰、加油机与补给舰。'},
-  {id:'asw',name:'美中反潜搜索',description:'500 公里起始：弗吉尼亚级对 093 型，搭配本国反潜舰、巡逻机与反潜直升机。'},
-  {id:'empty',name:'美中空白部署',description:'双方各 600 点，在各自前沿线后方选择本国舰机与通用岸基设施，保持至少 500 公里起始距离。'},
+  {id:'surface',name:'美中海空编队',description:'250 公里起始：伯克级对 055／052DL，配备本国制空、反舰、电子战、预警与加油机。'},
+  {id:'carrier',name:'美中航母航空',description:'250 公里起始：福特级对福建舰，包含各自舰载航空队、护航舰、加油机与补给舰。'},
+  {id:'asw',name:'美中反潜搜索',description:'250 公里起始：弗吉尼亚级对 093 型，搭配本国反潜舰、巡逻机与反潜直升机。'},
+  {id:'empty',name:'美中空白部署',description:'双方各 600 点，在各自前沿线后方选择本国舰机与通用岸基设施，保持至少 250 公里起始距离。'},
 ];
 // [type, distance behind the side's leading station, lateral offset, optional loadout].
-// The leading combat pair is exactly 500 km apart; every other station is behind it.
+// The leading pair uses the theatre's separation; every other station is behind it.
 const FORCES={
   surface:{
     blue:[['ddg_burke3',0,0],['ddg_burke2a',8,16],['f22a',6,-22],['fa18e',9,27,'naval'],['ea18g',18,32,'sead'],['e7',28,-30],['kc46a',38,-13],['p8a',16,43]],

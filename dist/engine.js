@@ -1,9 +1,9 @@
-import {AUTO_PRESETS,AI_DOCTRINES,populateAutoPreset,configureAutomation,beginAutomation,commandAutomation,hasCombatPlatform,updateAutoOutcome,finishAutomation,automationReport,restoreAutomation,recordAutoShot,recordAutoDamage,recordAutoIntercept,recordAutoSortie} from './auto-commander.js?v=0.6.0';
+import {AUTO_PRESETS,AI_DOCTRINES,populateAutoPreset,configureAutomation,beginAutomation,commandAutomation,hasCombatPlatform,updateAutoOutcome,finishAutomation,automationReport,restoreAutomation,recordAutoShot,recordAutoDamage,recordAutoIntercept,recordAutoSortie} from './auto-commander.js?v=0.6.1';
 export {AUTO_PRESETS,AI_DOCTRINES};
 import {buildModernCatalog} from './modern-catalog.js';
 import {geographicMap,geoToWorld,REAL_MAPS} from './geography.js';
 import {seaRoute} from './navigation.js';
-import {getBattleTheatre,factionName,inDeploymentZone,nearestSeparationKm} from './battle-theatres.js';
+import {getBattleTheatre,factionName,inDeploymentZone,nearestSeparationKm} from './battle-theatres.js?v=0.6.1';
 export {getBattleTheatre,factionName};
 import {HISTORICAL_SCENARIOS,initializeHistorical,historicalOrder,historicalObjectives,updateHistorical} from './historical-missions.js';
 export {historicalObjectives};
@@ -67,7 +67,7 @@ export const TYPES={
 };
 Object.assign(TYPES,buildModernCatalog(platform));
 export const SCENARIOS={
-  autobattle:{name:'AI 自动对战平台',subtitle:'美中编队 · 500 公里起始 · 双方自主指挥',brief:'美方（蓝）与中方（红）从相隔 500 公里的前沿阵位开始搜索。双方各 600 部署点，只可在各自后方部署本国舰机；自定义最近间距至少 500 公里。发现、识别和武器射程决定实际开火时机。虚构演习海域，按歼灭或时限内有效毁伤结算，观战信息不提供给 AI。',budget:600},
+  autobattle:{name:'AI 自动对战平台',subtitle:'美中编队 · 250 公里起始 · 双方自主指挥',brief:'美方（蓝）与中方（红）从相隔 250 公里的前沿阵位开始搜索。双方各 600 部署点，只可在各自后方部署本国舰机；自定义最近间距至少 250 公里。发现、识别和武器射程决定实际开火时机。虚构演习海域，按歼灭或时限内有效毁伤结算，观战信息不提供给 AI。',budget:600},
   modernlab:{name:'现代装备试验场',subtitle:'真实型号 · 航母航空 · 挂载与后勤',brief:'双方各 600 部署点，航母已包含缩编航空队。选择航母放飞舰载机，或打开装备库按任务选型。尝试制空、反舰、反潜、加油与补给，没有强制胜负。',budget:600},
   ...HISTORICAL_SCENARIOS,
   strait:{name:'海峡交锋',subtitle:'联合编队 · 侦察与防空',brief:'红方舰队与攻击机接近海峡。用空中雷达建立航迹，经数据链引导对舰打击；舰载雷达对水面目标受地平线限制。摧毁全部红方战斗单位获胜。',budget:100},
@@ -130,7 +130,7 @@ function makeUnit(s,type,side,x,y){const t=TYPES[type],n=++s.nextId;return {
 function spawn(s,type,side,x,y){const u=makeUnit(s,type,side,x,y);s.units.push(u);s[side==='blue'?'budget':'redBudget']-=TYPES[type].cost;return u;}
 export function createState(scenario='strait',autoPreset='surface'){
   if(!Object.hasOwn(SCENARIOS,scenario))scenario='strait';
-  const s={version:6,automation:null,mapId:scenario==='autobattle'?'uscn500':SCENARIOS[scenario].mapId||null,scenario,phase:'setup',paused:true,time:0,nextId:0,nextMissile:0,seed:712301,budget:SCENARIOS[scenario].budget,redBudget:SCENARIOS[scenario].budget,weather:'clear',units:[],missiles:[],contacts:{blue:{},red:{}},events:[],effects:[],result:null,sensorClock:0,aiClock:0};
+  const s={version:6,automation:null,mapId:scenario==='autobattle'?'uscn250':SCENARIOS[scenario].mapId||null,scenario,phase:'setup',paused:true,time:0,nextId:0,nextMissile:0,seed:712301,budget:SCENARIOS[scenario].budget,redBudget:SCENARIOS[scenario].budget,weather:'clear',units:[],missiles:[],contacts:{blue:{},red:{}},events:[],effects:[],result:null,sensorClock:0,aiClock:0};
   if(scenario==='autobattle'){populateAutoPreset(s,autoPreset,autoAPI());}
   else if(isHistorical(s)){initializeHistorical(s,missionAPI());}
   else if(scenario==='modernlab'){
@@ -156,7 +156,7 @@ export function addUnit(s,type,side,p){
   if(isHistorical(s))return {ok:false,error:'历史任务使用固定兵力，不能额外部署'};
   if(!Object.hasOwn(TYPES,type)||!['blue','red'].includes(side))return {ok:false,error:'无效单位'};
   if(!canDeployType(s,type,side))return {ok:false,error:`${factionName(s,side)}只能部署本国型号或通用岸基设施`};
-  if(getBattleTheatre(s)&&!inDeploymentZone(s,side,p||{}))return {ok:false,error:'请部署在本方前沿线后方，保持双方起始间距至少 500 公里'};
+  if(getBattleTheatre(s)&&!inDeploymentZone(s,side,p||{}))return {ok:false,error:`请部署在本方前沿线后方，保持双方起始间距至少 ${getBattleTheatre(s).initialSeparationKm} 公里`};
   if(side==='red'&&!freeDeploy(s))return {ok:false,error:'本剧本仅支持部署蓝方'};
   if(s.units.length>=60)return {ok:false,error:'最多部署 60 个单位'};
   if(!validPlacement(type,p,s))return {ok:false,error:TYPES[type].domain==='land'?'岸基单位必须部署在陆地上':'请选择海域内的有效部署位置'};
@@ -493,7 +493,7 @@ export function deserialize(text){
   if(raw.version<5&&raw.scenario==='autobattle')throw Error('旧存档不支持自动对战');
   const s=createState(raw.scenario);s.units=[];s.events=[];s.contacts={blue:{},red:{}};s.missiles=[];
   const expectedMap=SCENARIOS[raw.scenario].mapId||null;
-  if(!isHistorical(s)&&raw.mapId!=null&&raw.mapId!==expectedMap&&!(raw.version>=6&&raw.scenario==='autobattle'&&raw.mapId==='uscn500'))throw Error('战局海域无效');
+  if(!isHistorical(s)&&raw.mapId!=null&&raw.mapId!==expectedMap&&!(raw.version>=6&&raw.scenario==='autobattle'&&getBattleTheatre(raw)))throw Error('战局海域无效');
   s.mapId=raw.scenario==='autobattle'&&raw.version>=6?raw.mapId||null:expectedMap;
   s.time=number(raw.time,0,1e8);s.budget=number(raw.budget,0,1000);s.redBudget=number(raw.redBudget,0,1000,SCENARIOS[raw.scenario].budget);
   s.phase=raw.phase;s.paused=true;s.seed=number(raw.seed,0,4294967295,712301);s.weather=raw.weather==='storm'?'storm':'clear';s.sensorClock=number(raw.sensorClock,0,3,0);s.aiClock=number(raw.aiClock,0,8,0);s.result=['victory','defeat','draw'].includes(raw.result)?raw.result:null;

@@ -3,9 +3,9 @@
 <head>
   <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#0c141b">
-  <meta name="description" content="美中双方从 500 公里起始间隔进行 AI 对战模拟、188 个真实现代装备型号、舰载航空与后勤；附三个真实海岸线历史单人任务。">
+  <meta name="description" content="美中双方从 250 公里起始间隔进行 AI 对战模拟、188 个真实现代装备型号、舰载航空与后勤；附三个真实海岸线历史单人任务。">
   <title>Sea Power · 海空战模拟平台</title>
-  <link rel="icon" href="./favicon.svg" type="image/svg+xml"><link rel="stylesheet" href="./style.css?v=0.6.0">
+  <link rel="icon" href="./favicon.svg" type="image/svg+xml"><link rel="stylesheet" href="./style.css?v=0.6.1">
 </head>
 <body>
   <main class="workspace">
@@ -22,7 +22,7 @@
       <button id="scenario" class="scenario-name">海峡交锋 <span>⌄</span></button><p id="mission-subtitle" class="mission-subtitle">联合编队 · 对海与防空</p>
       <label class="weather-label">海况 <select id="weather" aria-label="海况"><option value="clear">晴朗 / 2 级</option><option value="storm">风暴 / 6 级</option></select></label>
       <label class="check-row"><input type="checkbox" id="all-auto"> 蓝方全队自动交战</label>
-      <button id="auto-battle-mission" class="outline wide auto-entry">美中 AI 对战 · 500 公里起始 ↗</button><button id="catalog-mission" class="outline wide mechanics-button">现代装备库 · 188 型 ↗</button><button id="mechanics" class="outline wide mechanics-button">作战机制与平衡</button>
+      <button id="auto-battle-mission" class="outline wide auto-entry">美中 AI 对战 · 250 公里起始 ↗</button><button id="catalog-mission" class="outline wide mechanics-button">现代装备库 · 188 型 ↗</button><button id="mechanics" class="outline wide mechanics-button">作战机制与平衡</button>
       <button id="history-brief" class="outline wide mechanics-button hidden">历史背景与任务简报</button>
       <div id="mission-objectives" class="mission-objectives"></div>
       <div id="briefing" class="briefing"><p id="brief-text"></p><button id="begin" class="primary wide">开始推演 ↗</button></div>
@@ -73,6 +73,6 @@
   <div id="toast" class="toast hidden" role="status"></div>
   <dialog id="dialog"><div id="dialog-content"></div></dialog>
   <input type="file" id="import-file" accept="application/json,.json" hidden>
-  <script type="module" src="./app.js?v=0.6.0"></script>
+  <script type="module" src="./app.js?v=0.6.1"></script>
 </body>
 </html>
