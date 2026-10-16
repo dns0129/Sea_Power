@@ -1,6 +1,8 @@
-import {AUTO_PRESETS,AI_DOCTRINES,populateAutoPreset,configureAutomation,beginAutomation,commandAutomation,hasCombatPlatform,updateAutoOutcome,finishAutomation,automationReport,restoreAutomation,recordAutoShot,recordAutoDamage,recordAutoIntercept,recordAutoSortie} from './auto-commander.js?v=0.6.1';
+import {AUTO_PRESETS,AI_DOCTRINES,populateAutoPreset,configureAutomation,beginAutomation,commandAutomation,hasCombatPlatform,updateAutoOutcome,finishAutomation,automationReport,restoreAutomation,recordAutoShot,recordAutoDamage,recordAutoIntercept,recordAutoSortie} from './auto-commander.js?v=0.7.0';
 export {AUTO_PRESETS,AI_DOCTRINES};
-import {buildModernCatalog} from './modern-catalog.js';
+import {buildModernCatalog} from './modern-catalog.js?v=0.7.0';
+import {CUSTOM_MISSIONS,supportsCustom,validateCustom,loadoutUsage as capacityUsage,missionWeaponKeys} from './loadout-rules.js?v=0.7.0';
+export {CUSTOM_MISSIONS};
 import {geographicMap,geoToWorld,REAL_MAPS} from './geography.js';
 import {seaRoute} from './navigation.js';
 import {getBattleTheatre,factionName,inDeploymentZone,nearestSeparationKm} from './battle-theatres.js?v=0.6.1';
@@ -97,7 +99,7 @@ export function missionRoute(s,from,to){
   if(TYPES[from.type]?.domain==='air')return [{x:to.x,y:to.y}];
   const w=worldFor(s);return seaRoute(from,to,{width:w.width,height:w.height,blocked:p=>inLand(p,s),clear:(a,b)=>clearPath(a,b,s)});
 }
-const autoAPI=()=>({spawn,types:TYPES,weapons:WEAPONS,world:worldFor,land:landFor,inLand,inBounds,clearPath,route:missionRoute,distance,bearing,unitById,airborne,weaponStats,maxSpeed,sensorRange,visibleContacts,usableContact,radioAvailable,fireCheck,fire,launchDeck,requestRefuel,requestSupply,returnToBase,scan,log,freeDeploy,validateDeployment:text=>{const initial=deserialize(text);if(!isAutoBattle(initial)||initial.phase!=='setup')throw Error('初始部署快照无效');}});
+const autoAPI=()=>({spawn,types:TYPES,weapons:WEAPONS,world:worldFor,land:landFor,inLand,inBounds,clearPath,route:missionRoute,distance,bearing,unitById,airborne,weaponStats,getLoadout,missionWeaponKeys,maxSpeed,sensorRange,visibleContacts,usableContact,radioAvailable,fireCheck,fire,launchDeck,requestRefuel,requestSupply,returnToBase,scan,log,freeDeploy,validateDeployment:text=>{const initial=deserialize(text);if(!isAutoBattle(initial)||initial.phase!=='setup')throw Error('初始部署快照无效');}});
 export const isAutoBattle=s=>s.automation?.enabled===true;
 export const createAutoBattle=(preset='surface')=>createState('autobattle',preset);
 export function configureAutoBattle(s,options={}){if(s.phase!=='setup'||!freeDeploy(s)||isHistorical(s))return {ok:false,error:'请在双方可部署的沙盘部署阶段配置 AI 对战'};return configureAutomation(s,options);}
@@ -124,13 +126,13 @@ function makeUnit(s,type,side,x,y){const t=TYPES[type],n=++s.nextId;return {
   id:`u${n}`,type,side,name:`${getBattleTheatre(s)?side==='blue'?'美':'中':side==='blue'?'蓝':'红'}${t.code}-${String(n).padStart(2,'0')}`,x,y,hp:t.hp,
   speed:t.domain==='air'?(t.rotary?0:Math.round(t.speed*.65)):Math.round(t.speed*.55),heading:side==='blue'?90:270,
   radar:(side==='red'||t.role==='awacs'||type==='awacs')&&t.radar>0,sonar:t.sonar>0,esm:t.esm>0,datalink:true,jamming:false,altitude:t.altitude||'medium',
-  autoDefense:true,autoEngage:side==='red',samReserve:Math.floor(t.weapons.sam*.25),loadout:t.loadouts?.[0].id||null,weapons:ammo(t.loadouts?.[0].weapons||t.weapons),ciws:t.ciws,decoys:t.decoys,
+  autoDefense:true,autoEngage:side==='red',samReserve:Math.floor(t.weapons.sam*.25),loadout:t.loadouts?.[0].id||null,customLoadout:null,wingLoadouts:{},weapons:ammo(t.loadouts?.[0].weapons||t.weapons),ciws:t.ciws,decoys:t.decoys,
   missionRole:null,exited:false,route:[],leader:null,offset:null,cooldowns:{},defenseCooldown:0,radarDisabledUntil:0,fuel:t.endurance*60,flightState:'airborne',serviceUntil:0,home:null,sorties:0,supply:t.baseSupply||(type==='airbase'?30:0),airwing:{...(t.deck?.wing||{})},deckReady:0,deckBased:false,originDeck:null,fuelSupply:t.fuelSupply||0,refuelTarget:null,supplyTarget:null,depth:t.domain==='sub'?'deep':null,ai:null,trail:[],
 };}
 function spawn(s,type,side,x,y){const u=makeUnit(s,type,side,x,y);s.units.push(u);s[side==='blue'?'budget':'redBudget']-=TYPES[type].cost;return u;}
 export function createState(scenario='strait',autoPreset='surface'){
   if(!Object.hasOwn(SCENARIOS,scenario))scenario='strait';
-  const s={version:6,automation:null,mapId:scenario==='autobattle'?'uscn250':SCENARIOS[scenario].mapId||null,scenario,phase:'setup',paused:true,time:0,nextId:0,nextMissile:0,seed:712301,budget:SCENARIOS[scenario].budget,redBudget:SCENARIOS[scenario].budget,weather:'clear',units:[],missiles:[],contacts:{blue:{},red:{}},events:[],effects:[],result:null,sensorClock:0,aiClock:0};
+  const s={version:7,automation:null,mapId:scenario==='autobattle'?'uscn250':SCENARIOS[scenario].mapId||null,scenario,phase:'setup',paused:true,time:0,nextId:0,nextMissile:0,seed:712301,budget:SCENARIOS[scenario].budget,redBudget:SCENARIOS[scenario].budget,weather:'clear',units:[],missiles:[],contacts:{blue:{},red:{}},events:[],effects:[],result:null,sensorClock:0,aiClock:0};
   if(scenario==='autobattle'){populateAutoPreset(s,autoPreset,autoAPI());}
   else if(isHistorical(s)){initializeHistorical(s,missionAPI());}
   else if(scenario==='modernlab'){
@@ -219,7 +221,7 @@ function detection(s,observer,target){
       }return null;
     }
   }
-  const range=Math.min(t.radar*weather*(observer.hp<t.hp*.4?.65:1)*(jammingAgainst(s,observer)?.58:1)*Math.pow(TYPES[target.type].signature*(TYPES[target.type].loadouts?.find(l=>l.id===target.loadout)?.external?2.5:1),.25),radarHorizon(observer,target));
+  const range=Math.min(t.radar*weather*(observer.hp<t.hp*.4?.65:1)*(jammingAgainst(s,observer)?.58:1)*Math.pow(TYPES[target.type].signature*(getLoadout(target)?.external?2.5:1),.25),radarHorizon(observer,target));
   if(radarWorking(s,observer)&&t.radar>0&&d<=range&&!(isHistorical(s)&&domain==='air'&&target.altitude==='low'&&!airborne(observer)&&!clearPath(observer,target,s))&&((domain==='air'||airborne(observer)||domain==='land')||clearPath(observer,target,s)))return {source:'雷达',quality:'search'};
   if(d<(t.eoRange||5)*(s.weather==='storm'?.4:1)&&t.domain!=='sub'&&(airborne(observer)||clearPath(observer,target,s)||domain==='land'))return {source:'目视',quality:'track'};
   if(radioAvailable(observer)&&observer.esm&&(radarWorking(s,target)||target.jamming&&airborne(target))&&d<=t.esm*weather)return {source:'电子支援',quality:'bearing'};return null;
@@ -292,10 +294,36 @@ function move(s,u,dt){
   if(s.time%5<dt){u.trail.push({x:u.x,y:u.y});u.trail=u.trail.slice(-80);}u.x=next.x;u.y=next.y;if(d<=step&&!u.leader)u.route.shift();
 }
 export function deckCompatible(shipType,airType){const deck=TYPES[shipType]?.deck,air=TYPES[airType];return !!deck&&air?.domain==='air'&&(air.carrierModes||[]).some(mode=>deck.modes.includes(mode));}
+export const supportsCustomLoadout=type=>supportsCustom(TYPES[type]);
+export const validateCustomLoadout=(type,draft)=>validateCustom(TYPES[type],draft);
+export const loadoutUsage=(type,weapons)=>capacityUsage(TYPES[type],weapons);
+export function getLoadout(u){const t=TYPES[u?.type];if(!t)return null;return u.loadout==='custom'?u.customLoadout:t.loadouts?.find(l=>l.id===u.loadout)||{id:u.loadout||'standard',name:'标准配置',weapons:t.weapons,external:false};}
+function resolveLoadout(type,selection){
+  const t=TYPES[type];if(!t)return {ok:false,error:'无效型号'};
+  if(selection!==undefined&&(selection===null||typeof selection!=='string'&&(typeof selection!=='object'||Array.isArray(selection))))return {ok:false,error:'任务挂载无效'};
+  if(selection&&typeof selection==='object'&&!Array.isArray(selection)&&(selection.id===undefined||selection.id==='custom'))return validateCustomLoadout(type,selection);
+  const id=typeof selection==='object'&&selection?selection.id:selection,row=id===undefined?t.loadouts?.[0]:t.loadouts?.find(l=>l.id===id);
+  return row?{ok:true,row}:{ok:false,error:'任务挂载无效'};
+}
+function applyLoadout(s,u,row){
+  u.loadout=row.id;u.customLoadout=row.id==='custom'?structuredClone(row):null;
+  u.weapons=s.phase==='setup'?ammo(row.weapons):ammo(Object.fromEntries(Object.entries(u.weapons).map(([key,n])=>[key,Math.min(n,row.weapons[key]||0)])));u.samReserve=Math.min(u.samReserve,u.weapons.sam);
+  log(s,`${u.name} 选择${row.name}`);return {ok:true};
+}
+const canChangeLoadout=(s,u)=>controllable(s,u)&&(s.phase==='setup'||TYPES[u.type].domain==='air'&&u.flightState==='servicing');
 export function setLoadout(s,id,loadoutId){
   const u=unitById(s,id),t=TYPES[u?.type],row=t?.loadouts?.find(l=>l.id===loadoutId);
-  if(!u||!controllable(s,u)||!row||s.phase!=='setup'&&u.flightState!=='servicing')return {ok:false,error:'部署阶段或飞机补给期间才可更换挂载'};
-  u.loadout=row.id;u.weapons=s.phase==='setup'?ammo(row.weapons):ammo(Object.fromEntries(Object.entries(u.weapons).map(([k,n])=>[k,Math.min(n,row.weapons[k]||0)])));u.samReserve=Math.min(u.samReserve,u.weapons.sam);log(s,`${u.name} 选择${row.name}`);return {ok:true};
+  if(!u||!canChangeLoadout(s,u)||!row)return {ok:false,error:'部署阶段或飞机补给期间才可更换挂载'};
+  return applyLoadout(s,u,row);
+}
+export function setCustomLoadout(s,id,draft){
+  const u=unitById(s,id);if(!u||!canChangeLoadout(s,u))return {ok:false,error:'部署阶段或飞机补给期间才可更换挂载'};
+  const result=validateCustomLoadout(u.type,draft);return result.ok?applyLoadout(s,u,result.row):result;
+}
+export function setDeckLoadout(s,id,type,selection){
+  const base=unitById(s,id);if(!base||!controllable(s,base)||!Object.hasOwn(TYPES[base.type].deck?.wing||{},type)||!deckCompatible(base.type,type))return {ok:false,error:'请选择可指挥航空舰的兼容舰载机'};
+  if(selection===null){delete base.wingLoadouts[type];log(s,`${base.name}：${TYPES[type].name}恢复自主挂载选择`);return {ok:true};}
+  const result=resolveLoadout(type,selection);if(!result.ok)return result;base.wingLoadouts[type]=structuredClone(result.row);log(s,`${base.name}：${TYPES[type].name}后续出动采用${result.row.name}`);return {ok:true};
 }
 export function setDepth(s,id,depth){const u=unitById(s,id);if(!controllable(s,u)||TYPES[u.type].domain!=='sub'||!['deep','periscope'].includes(depth))return {ok:false,error:'请选择可用潜艇'};u.depth=depth;log(s,`${u.name} ${depth==='deep'?'深潜：无线电与数据链不可用':'潜望镜深度：可接收数据链与发射潜射导弹'}`);return {ok:true};}
 const deckAirborne=(s,base)=>s.units.filter(v=>v.hp>0&&!v.exited&&v.home?.baseId===base.id&&TYPES[v.type].domain==='air'&&airborne(v)).length;
@@ -307,8 +335,8 @@ export function launchDeck(s,id,type,loadoutId){
   if(base.deckReady>s.time)return {ok:false,error:`甲板准备中，剩余 ${Math.ceil(base.deckReady-s.time)} 秒`};
   if(deckAirborne(s,base)>=deck.capacity)return {ok:false,error:'已达本舰在空容量，请等待回收'};
   if(s.units.length>=60)return {ok:false,error:'战局单位数量已达 60 个上限'};
-  const row=loadoutId?TYPES[type].loadouts.find(l=>l.id===loadoutId):TYPES[type].loadouts[0];if(!row)return {ok:false,error:'任务挂载无效'};
-  const u=makeUnit(s,type,base.side,base.x,base.y);u.originDeck=base.id;u.home={x:base.x,y:base.y,baseId:base.id};u.loadout=row.id;u.weapons=ammo(row.weapons);u.speed=Math.round(TYPES[type].speed*.65);s.units.push(u);recordAutoSortie(s,u);base.airwing[type]--;base.deckReady=s.time+deck.cooldown*(s.weather==='storm'?1.5:1);log(s,`${base.side==='blue'?base.name:'红方航空舰'} 放飞${TYPES[type].name}`);return {ok:true,unit:u};
+  const selected=loadoutId===undefined?base.wingLoadouts[type]:loadoutId,result=resolveLoadout(type,selected);if(!result.ok)return result;const row=result.row;
+  const u=makeUnit(s,type,base.side,base.x,base.y);u.originDeck=base.id;u.home={x:base.x,y:base.y,baseId:base.id};u.loadout=row.id;u.customLoadout=row.id==='custom'?structuredClone(row):null;u.weapons=ammo(row.weapons);u.speed=Math.round(TYPES[type].speed*.65);s.units.push(u);recordAutoSortie(s,u);base.airwing[type]--;base.deckReady=s.time+deck.cooldown*(s.weather==='storm'?1.5:1);log(s,`${base.side==='blue'?base.name:'红方航空舰'} 放飞${TYPES[type].name}`);return {ok:true,unit:u};
 }
 export function requestRefuel(s,id,tankerId){
   const u=unitById(s,id),donor=unitById(s,tankerId),t=TYPES[u?.type],dt=TYPES[donor?.type];
@@ -343,7 +371,7 @@ function modernAI(s){
       const contacts=visibleContacts(s,'red').filter(c=>!c.stale),priority=key=>['awacs','heloAwacs'].includes(TYPES[key].role)?-3:TYPES[key].role==='sead'?-2:TYPES[key].sonar&&contacts.some(c=>c.domain==='sub')?-1:0;
       const keys=Object.keys(u.airwing).sort((a,b)=>priority(a)-priority(b));
       const cap=s.units.some(v=>v.side==='red'&&v.hp>0&&airborne(v)&&['fighter','navalAir'].includes(TYPES[v.type].category)&&v.weapons.aam>0);
-      for(const key of keys)if(u.airwing[key]>0){const naval=cap&&contacts.some(c=>c.domain==='surface')&&TYPES[key].loadouts.find(l=>l.id==='naval');launchDeck(s,u.id,key,naval?.id);break;}
+      for(const key of keys)if(u.airwing[key]>0){const naval=cap&&contacts.some(c=>c.domain==='surface')&&TYPES[key].loadouts.find(l=>l.id==='naval');launchDeck(s,u.id,key,u.wingLoadouts[key]||naval?.id);break;}
     }
     if(t.model&&t.domain==='sub'&&visibleContacts(s,'red').some(c=>c.domain==='surface'&&c.quality==='track'&&!c.stale))u.depth='periscope';
     if(t.refuelSystem&&u.flightState==='airborne'&&u.fuel<t.endurance*30&&!u.refuelTarget){const donor=s.units.find(v=>v.side===u.side&&v.hp>0&&TYPES[v.type].tanker&&TYPES[v.type].refuelSystems.includes(t.refuelSystem)&&v.fuelSupply>0&&distance(u,v)<50);if(donor)requestRefuel(s,u.id,donor.id);}
@@ -360,7 +388,7 @@ function aviation(s,u,dt){
   if(u.flightState==='servicing'){
     const base=u.home.baseId?unitById(s,u.home.baseId):null;
     if(u.home.baseId&&(!base||base.hp<=0)){u.flightState='grounded';log(s,`${u.side==='blue'?u.name:'红方飞机'} 补给基地损失，停飞`,'warning');return;}
-    if(s.time>=u.serviceUntil&&(!base||!TYPES[base.type].deck||base.hp>=TYPES[base.type].hp*.4&&base.deckReady<=s.time&&deckAirborne(s,base)<TYPES[base.type].deck.capacity)){if(base&&TYPES[base.type].deck)base.deckReady=s.time+TYPES[base.type].deck.cooldown;u.deckBased=false;u.fuel=t.endurance*60;u.weapons=ammo(t.loadouts?.find(l=>l.id===u.loadout)?.weapons||t.weapons);u.decoys=t.decoys;u.flightState='airborne';u.sorties++;recordAutoSortie(s,u);u.altitude=t.altitude||'medium';u.speed=Math.min(maxSpeed(u),Math.round(t.speed*.65));log(s,`${u.side==='blue'?u.name:'红方飞机'} 补给完成，重新出动`);}return;
+    if(s.time>=u.serviceUntil&&(!base||!TYPES[base.type].deck||base.hp>=TYPES[base.type].hp*.4&&base.deckReady<=s.time&&deckAirborne(s,base)<TYPES[base.type].deck.capacity)){if(base&&TYPES[base.type].deck)base.deckReady=s.time+TYPES[base.type].deck.cooldown;u.deckBased=false;u.fuel=t.endurance*60;u.weapons=ammo(getLoadout(u)?.weapons||t.weapons);u.decoys=t.decoys;u.flightState='airborne';u.sorties++;recordAutoSortie(s,u);u.altitude=t.altitude||'medium';u.speed=Math.min(maxSpeed(u),Math.round(t.speed*.65));log(s,`${u.side==='blue'?u.name:'红方飞机'} 补给完成，重新出动`);}return;
   }
   if(u.flightState==='grounded')return;
   u.fuel=Math.max(0,u.fuel-dt*(.7+.3*u.speed/(t.speed*.65)));
@@ -489,7 +517,7 @@ function number(v,min,max,fallback){if(v===undefined&&fallback!==undefined)retur
 function point(p,s){if(!inBounds(p,s))throw Error('战局坐标无效');return {x:p.x,y:p.y};}
 export function deserialize(text){
   if(typeof text!=='string'||text.length>1000000)throw Error('战局文件过大');const raw=JSON.parse(text),legacy=raw.version===1;
-  if(![1,2,3,4,5,6].includes(raw.version)||!Object.hasOwn(SCENARIOS,raw.scenario)||!['setup','running','ended'].includes(raw.phase)||!Array.isArray(raw.units)||raw.units.length>60)throw Error('战局格式无效');
+  if(![1,2,3,4,5,6,7].includes(raw.version)||!Object.hasOwn(SCENARIOS,raw.scenario)||!['setup','running','ended'].includes(raw.phase)||!Array.isArray(raw.units)||raw.units.length>60)throw Error('战局格式无效');
   if(raw.version<5&&raw.scenario==='autobattle')throw Error('旧存档不支持自动对战');
   const s=createState(raw.scenario);s.units=[];s.events=[];s.contacts={blue:{},red:{}};s.missiles=[];
   const expectedMap=SCENARIOS[raw.scenario].mapId||null;
@@ -515,8 +543,15 @@ export function deserialize(text){
     if(t.domain==='air'&&airborne(u)&&!t.rotary)u.speed=Math.max(Math.round(t.speed*.4),u.speed);
     if(!Object.hasOwn(ALTITUDES,r.altitude)&&!legacy)throw Error('战局高度无效');u.altitude=legacy?t.altitude||'medium':r.altitude;
     if(raw.version>=4){
-      if(t.loadouts&&!t.loadouts.some(l=>l.id===r.loadout))throw Error('任务挂载无效');u.loadout=r.loadout||null;
-      const cap=t.loadouts?.find(l=>l.id===u.loadout)?.weapons||t.weapons;for(const key of Object.keys(WEAPONS))if(u.weapons[key]>(cap[key]||0))throw Error('弹药超过所选挂载');
+      if(r.loadout==='custom'){
+        if(raw.version<7)throw Error('旧存档不支持自定义挂载');const custom=validateCustomLoadout(r.type,r.customLoadout);if(!custom.ok)throw Error(custom.error);u.loadout='custom';u.customLoadout=custom.row;
+      }else{if(r.customLoadout!=null||t.loadouts&&!t.loadouts.some(l=>l.id===r.loadout))throw Error('任务挂载无效');u.loadout=r.loadout||null;}
+      const cap=getLoadout(u)?.weapons||t.weapons;for(const key of Object.keys(WEAPONS))if(u.weapons[key]>(cap[key]||0))throw Error('弹药超过所选挂载');
+      const plans=r.wingLoadouts??{};if(!plans||typeof plans!=='object'||Array.isArray(plans)||raw.version<7&&Object.keys(plans).length)throw Error('舰载机挂载计划无效');
+      for(const [type,selection] of Object.entries(plans)){
+        if(!Object.hasOwn(t.deck?.wing||{},type)||!deckCompatible(r.type,type)||!selection||typeof selection!=='object'||Array.isArray(selection))throw Error('舰载机挂载计划引用无效');
+        const restored=resolveLoadout(type,selection);if(!restored.ok)throw Error(restored.error);u.wingLoadouts[type]=structuredClone(restored.row);
+      }
       u.depth=t.domain==='sub'&&['deep','periscope'].includes(r.depth)?r.depth:u.depth;
       u.airwing={};for(const [key,max] of Object.entries(t.deck?.wing||{})){u.airwing[key]=number(r.airwing?.[key],0,max);if(!Number.isInteger(u.airwing[key]))throw Error('航空队数量无效');}
       u.deckReady=number(r.deckReady,0,1e8);u.fuelSupply=number(r.fuelSupply,0,t.fuelSupply||0);

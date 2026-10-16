@@ -90,7 +90,12 @@ function airLoadouts(t){
   if(cap.aam||cap.ir)add('air','制空挂载',[['aam',t.internalAam??cap.aam],['ir',t.internalIr??Math.min(2,cap.ir||0)]],'优先空战弹药，减少对地挂载。');
   if(cap.torpedo)add('asw','反潜挂载',[['torpedo',cap.torpedo],['asm',1],['atgm',2]],'低空低速使用吊放声呐，巡逻机低空使用浮标抽象搜索。');
   if(cap.arm)add('sead','压制挂载',[['arm',cap.arm],['aam',2],['ir',2]],'反辐射弹与自卫空空弹，主动干扰需手动开启。');
-  if(cap.asm||cap.supersonic)add('naval','对海挂载',[['supersonic',cap.supersonic||0],['asm',cap.asm||0],['aam',2],['ir',2]],'携反舰弹，受挂载额度与目标航迹约束。');
+  if(cap.asm||cap.supersonic){
+    add('naval','对海挂载',[['supersonic',cap.supersonic||0],['asm',cap.asm||0],['aam',2],['ir',2]],'优先携带反舰弹；只能攻击符合武器目标条件的舰船，需有效海面航迹。');
+    const distinct=(id,name,desired,note)=>{const before=rows.length;add(id,name,desired,note);if(rows.length===before)return;const row=rows.at(-1);if(rows.slice(0,-1).some(other=>Object.keys(cap).every(key=>(other.weapons[key]||0)===(row.weapons[key]||0))))rows.pop();else row.mission='naval';};
+    distinct('navalEscort','对海护航挂载',[['aam',2],['ir',2],['supersonic',cap.supersonic||0],['asm',cap.asm||0]],'先保留空战自卫，再装反舰弹；自卫弹占用反舰载荷，不能用对陆弹替代反舰弹。');
+    distinct('navalHeavy','重反舰挂载',[['supersonic',cap.supersonic||0],['asm',cap.asm||0],['ir',Math.min(2,cap.ir||0)]],'优先装满兼容反舰弹，减少中距空战自卫；需要制空掩护与有效海面航迹。');
+  }
   if(cap.cruise||cap.pgm)add('strike','对地挂载',[['cruise',Math.min(cap.cruise||0,4)],['pgm',t.internalPgm??cap.pgm],['aam',2],['ir',t.internalIr??2]],'对陆武器不能攻击移动舰船。');
   if(cap.atgm)add('close','近距支援',[['atgm',cap.atgm],['ir',2],['torpedo',1]],'依靠近距光电航迹持续指示目标。');
   if(t.signature<.5&&(cap.aam>(t.internalAam||0)||cap.pgm>(t.internalPgm||0)))add('external','外部加强挂载',[['aam',cap.aam],['ir',cap.ir||0],['pgm',cap.pgm||0]],'增加弹药，但降低低可探测优势。');
@@ -99,15 +104,30 @@ function airLoadouts(t){
 }
 function shipLoadouts(t){
   const cap=t.weapons,weights=t.vlsWeapons||{},cells=t.vlsCells||0;
-  if(!cells)return [{id:'standard',name:'标准弹库',weapons:{...cap},note:'固定发射装置与独立弹库的游戏化组合。'}];
+  const naval=()=>{
+    const weapons={...cap};
+    if(cells){
+      for(const key of Object.keys(weights))weapons[key]=0;
+      let remaining=cells;
+      for(const key of ['supersonic','asm','point','sam','asroc']){
+        const weight=weights[key];if(!weight)continue;
+        const count=Math.min(cap[key]||0,Math.floor((remaining+1e-9)/weight));
+        weapons[key]=count;remaining-=count*weight;
+      }
+    }
+    return {id:'naval',name:'对海优先弹库',mission:'naval',weapons,note:cells?'优先装满兼容反舰弹，再分配防空与反潜；共享垂发中的对陆弹药让位，固定发射器不能转换为反舰弹位。':'使用固定反舰发射器执行对海任务；任务选择不增加反舰弹数量，各独立弹库仍按原装置计算。'};
+  };
+  if(!cells){const rows=[{id:'standard',name:'标准弹库',weapons:{...cap},note:'固定发射装置与独立弹库的游戏化组合。'}];if(cap.asm||cap.supersonic)rows.push(naval());return rows;}
   const profiles=[['balanced','均衡弹库',{sam:.65,point:.75,asroc:.5,cruise:.5,asm:1}],['airdef','防空优先',{sam:1,point:1,asroc:.5,cruise:0,asm:.5}],['asw','反潜优先',{sam:.5,point:.75,asroc:1,cruise:.25,asm:.5}],['strike','对陆优先',{sam:.4,point:.5,asroc:.25,cruise:1,asm:1}]];
-  return profiles.filter(([id])=>id!=='strike'||cap.cruise>0).map(([id,name,ratio])=>{
+  const rows=profiles.filter(([id])=>id!=='strike'||cap.cruise>0).map(([id,name,ratio])=>{
     const w=Object.fromEntries(Object.entries(cap).map(([k,v])=>[k,Object.hasOwn(weights,k)?Math.floor(v*(ratio[k]??1)):v]));
     const used=()=>Object.entries(weights).reduce((n,[k,weight])=>n+(w[k]||0)*weight,0);
     const priority=id==='airdef'?['cruise','asm','asroc','point','sam']:id==='strike'?['asroc','sam','point','asm','cruise']:['cruise','asroc','asm','point','sam'];
     for(const k of priority)while(used()>cells&&w[k]>0&&weights[k])w[k]--;
     return {id,name,weapons:w,note:'共享垂发容量；近防、甲板反舰弹与鱼雷按各自弹库计算。'};
   });
+  if(cap.asm||cap.supersonic)rows.push(naval());
+  return rows;
 }
 export function buildModernCatalog(platform){
   const out={};

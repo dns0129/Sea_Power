@@ -17,7 +17,7 @@ function advance(s,seconds){for(let remaining=seconds;remaining>0&&s.phase==='ru
 test('美中完整预案在扩展海图上从最近 250 公里阵位开始',()=>{
   for(const preset of presets){
     const s=E.createAutoBattle(preset),theatre=E.getBattleTheatre(s),world=E.worldFor(s);
-    assert.equal(s.mapId,'uscn250');assert.equal(s.version,6);
+    assert.equal(s.mapId,'uscn250');assert.equal(s.version,7);
     assert.equal(world.width,440);assert.equal(world.height,260);
     assert.equal(theatre.initialSeparationKm,250);
     assert.ok(Math.abs(theatre.initialSeparationNm-250/KM_PER_NM)<1e-9);
@@ -123,11 +123,11 @@ test('存档拒绝未知海域、错误国家和非法初始部署区',()=>{
 test('此前 v6 的 500 公里美中存档载入、继续和重赛保持原阵位与间距',()=>{
   const legacy=raw(E.createAutoBattle('surface'));
   // Restore the previous preset geometry without changing its equipment or resources.
-  const shift=(500-250)/(2*KM_PER_NM);legacy.mapId='uscn500';
+  const shift=(500-250)/(2*KM_PER_NM);legacy.version=6;legacy.mapId='uscn500';
   for(const unit of legacy.units)unit.x+=unit.side==='blue'?-shift:shift;
   const initial=legacy.units.map(u=>[u.id,u.type,u.side,u.x,u.y,u.weapons]);
   const loaded=load(legacy);
-  assert.equal(loaded.version,6);assert.equal(loaded.mapId,'uscn500');
+  assert.equal(loaded.version,7);assert.equal(loaded.mapId,'uscn500');
   assert.equal(E.getBattleTheatre(loaded).initialSeparationKm,500);
   assert.ok(Math.abs(nearestKm(loaded)-500)<1e-9);
   assert.equal(E.getBattleReport(loaded).theatre.id,'uscn500');
@@ -149,7 +149,7 @@ test('v5 自动对战继续使用原地图，升级后重赛仍保留原部署',
   assert.ok(E.configureAutoBattle(s).ok);add(s,'fighter','blue',70,90);add(s,'fighter','red',170,90);
   const legacy=raw(s);legacy.version=5;legacy.scenario='autobattle';legacy.mapId=null;
   const loaded=load(legacy);
-  assert.equal(loaded.version,6);assert.equal(loaded.mapId,null);assert.equal(E.getBattleTheatre(loaded),null);
+  assert.equal(loaded.version,7);assert.equal(loaded.mapId,null);assert.equal(E.getBattleTheatre(loaded),null);
   assert.equal(E.worldFor(loaded).width,240);assert.equal(E.worldFor(loaded).height,170);
   assert.equal(E.factionName(loaded,'blue'),'蓝方');assert.equal(E.factionName(loaded,'red'),'红方');
   assert.deepEqual(loaded.units.map(u=>[u.type,u.x,u.y,u.weapons]),legacy.units.map(u=>[u.type,u.x,u.y,u.weapons]));

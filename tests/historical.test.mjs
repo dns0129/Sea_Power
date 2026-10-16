@@ -77,5 +77,5 @@ test('自由落体炸弹不触发导弹拦截，年代型战斗机不携带现�
   assert.equal(E.TYPES.seaHarrier.weapons.aam,0);assert.equal(E.TYPES.seaHarrier.weapons.ir,4);
 });
 test('v2 战局升级保留旧弹药，新年代武器默认为零',()=>{
-  const s=E.deserialize(readFileSync(new URL('./fixtures/legacy-v2.json',import.meta.url),'utf8'));assert.equal(s.version,6);assert.equal(s.scenario,'strait');assert.equal(s.units[0].weapons.asm,8);assert.equal(s.units[0].weapons.ir,0);assert.equal(s.units[0].weapons.bomb,0);assert.equal(s.paused,true);
+  const s=E.deserialize(readFileSync(new URL('./fixtures/legacy-v2.json',import.meta.url),'utf8'));assert.equal(s.version,7);assert.equal(s.scenario,'strait');assert.equal(s.units[0].weapons.asm,8);assert.equal(s.units[0].weapons.ir,0);assert.equal(s.units[0].weapons.bomb,0);assert.equal(s.paused,true);
 });

@@ -47,7 +47,7 @@ test('自动作战预案可独立部署双方，预算与撤回遵循相同规�
   for(const p of engine.AUTO_PRESETS){
     assert.ok(p.name&&p.description);
     const s=engine.createAutoBattle(p.id);
-    assert.equal(s.scenario,'autobattle');assert.equal(s.version,6);
+    assert.equal(s.scenario,'autobattle');assert.equal(s.version,7);
     assert.equal(s.phase,'setup');assert.equal(s.paused,true);
     assert.equal(freeDeploy(s),true);assert.equal(engine.isAutoBattle(s),true);
     assert.equal(s.automation.enabled,true);
@@ -147,7 +147,7 @@ test('相同部署与种子重复推演产生相同战局和战报',()=>{
 test('中途保存载入保留 AI 决策、统计与在途武器，继续后结果一致',()=>{
   const original=begin(pair({seed:339911}));advance(original,37);
   const resumed=deserialize(serialize(original));
-  assert.equal(resumed.paused,true);assert.equal(resumed.version,6);
+  assert.equal(resumed.paused,true);assert.equal(resumed.version,7);
   assert.deepEqual(comparable(resumed),comparable(original));
   resumed.paused=false;advance(original,203);advance(resumed,203);
   assert.deepEqual(comparable(resumed),comparable(original));
@@ -272,7 +272,7 @@ test('手动结束保留统计，重开恢复开战前部署和配置而非残�
 
 test('v4 现代装备战局升级后保留资源且不会自动启用 AI 对战',()=>{
   const raw=JSON.parse(serialize(engine.createState('modernlab')));raw.version=4;delete raw.automation;for(const u of raw.units)delete u.ai;
-  const loaded=deserialize(JSON.stringify(raw));assert.equal(loaded.version,6);assert.equal(engine.isAutoBattle(loaded),false);assert.equal(engine.getBattleReport(loaded),null);
+  const loaded=deserialize(JSON.stringify(raw));assert.equal(loaded.version,7);assert.equal(engine.isAutoBattle(loaded),false);assert.equal(engine.getBattleReport(loaded),null);
   assert.deepEqual(loaded.units.map(u=>[u.id,u.type,u.weapons,u.airwing,u.supply,u.fuel]),raw.units.map(u=>[u.id,u.type,u.weapons,u.airwing,u.supply,u.fuel]));assert.equal(loaded.budget,raw.budget);assert.equal(loaded.redBudget,raw.redBudget);
 });
 

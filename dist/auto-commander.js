@@ -97,7 +97,7 @@ function selectLoadout(s,type,contacts,own,api){const t=api.types[type],hasCAP=o
 }
 function deckOperations(s,u,contacts,own,api){const t=api.types[u.type];if(!t.deck)return;
   const priority=key=>['awacs','heloAwacs'].includes(api.types[key].role)?-4:api.types[key].role==='sead'?-3:api.types[key].sonar&&contacts.some(c=>c.domain==='sub')?-2:0;
-  for(const key of Object.keys(u.airwing).filter(k=>u.airwing[k]>0).sort((a,b)=>priority(a)-priority(b))){const row=selectLoadout(s,key,contacts,own,api),r=api.launchDeck(s,u.id,key,row?.id);if(r.ok){const air=r.unit;air.ai={anchor:{...u.ai.anchor},order:'',searchIndex:0,goal:null,goalTime:0,dipUntil:0,nextDip:0};prepare(s,air,api);order(s,air,'起飞，加入编队任务',api);}break;}
+  for(const key of Object.keys(u.airwing).filter(k=>u.airwing[k]>0).sort((a,b)=>priority(a)-priority(b))){const row=u.wingLoadouts[key]||selectLoadout(s,key,contacts,own,api),r=api.launchDeck(s,u.id,key,row);if(r.ok){const air=r.unit;air.ai={anchor:{...u.ai.anchor},order:'',searchIndex:0,goal:null,goalTime:0,dipUntil:0,nextDip:0};prepare(s,air,api);order(s,air,'起飞，加入编队任务',api);}break;}
 }
 function engagementWeapons(s,u,c,api){
   const t=api.types[u.type];return Object.keys(api.weapons).filter(key=>u.weapons[key]>0&&api.weapons[key].targets.includes(c.domain)&&!(key==='sam'&&u.weapons.sam<=u.samReserve)&&!(t.domain==='sub'&&u.depth==='deep'&&['asm','supersonic','cruise'].includes(key)));
@@ -108,14 +108,14 @@ function engagementRange(s,u,c,key,api){
   // A shared track cannot guarantee local illumination; keep closing until it is acquired.
   return Math.min(w.range,api.sensorRange(s,u,c.domain,c.altitude||'medium')*.9,illuminating?Infinity:api.distance(u,c)*.75);
 }
-function missionAmmoEmpty(u,t,api){const keys={naval:['asm','supersonic'],sead:['arm'],strike:['pgm','cruise','bomb'],asw:['torpedo'],close:['atgm']}[u.loadout]||Object.keys(api.weapons).filter(k=>t.weapons[k]>0);return keys.length>0&&keys.every(k=>!u.weapons[k]);}
+function missionAmmoEmpty(u,t,api){const row=api.getLoadout(u),mission=row?.mission||u.loadout,keys=api.missionWeaponKeys(mission)||Object.keys(row?.weapons||t.weapons).filter(k=>(row?.weapons||t.weapons)[k]>0);return keys.length>0&&keys.every(k=>!u.weapons[k]);}
 export function commandAutomation(s,api){
   if(!s.automation?.started||s.phase!=='running')return;
   for(const u of [...s.units]){
     if(u.hp<=0||u.exited)continue;const t=api.types[u.type],air=t.domain==='air';if(!u.ai)order(s,u,'接收任务',api);prepare(s,u,api);
     const own=s.units.filter(v=>v.side===u.side&&v.hp>0&&!v.exited),contacts=knownContacts(s,u,api),doctrine=AI_DOCTRINES[s.automation[u.side+'Doctrine']];
     if(air&&u.flightState==='servicing'){
-      const row=selectLoadout(s,u.type,contacts,own,api);if(row&&row.id!==u.loadout){u.loadout=row.id;for(const key of Object.keys(u.weapons))u.weapons[key]=Math.min(u.weapons[key],row.weapons[key]||0);}order(s,u,'整备，准备下一架次',api);continue;
+      const row=u.loadout==='custom'?api.getLoadout(u):api.unitById(s,u.originDeck)?.wingLoadouts[u.type]||selectLoadout(s,u.type,contacts,own,api);if(row&&row.id!==u.loadout){u.loadout=row.id;u.customLoadout=row.id==='custom'?clone(row):null;for(const key of Object.keys(u.weapons))u.weapons[key]=Math.min(u.weapons[key],row.weapons[key]||0);}order(s,u,'整备，准备下一架次',api);continue;
     }
     if(air&&!api.airborne(u)){order(s,u,'停飞，补给不可用',api);continue;}
     if(u.flightState==='returning'){order(s,u,'返航加油装弹',api);continue;}
