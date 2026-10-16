@@ -1,0 +1,51 @@
+import {AUTO_PRESETS,AI_DOCTRINES,createAutoBattle,configureAutoBattle,startAutoBattle,isAutoBattle,stopAutoBattle,getBattleReport,restartAutoBattle,freeDeploy} from './engine.js?v=6';
+
+// 观察者视角只影响显示；双方 AI 始终使用引擎维护的各自航迹。
+export function createAutoBattleUI({getState,replaceState,modal,escape:esc,clock,toast,result,onStart,onView,onDeploy,setWidgetOpen}){
+  let view='both',lastBoard='',lastResult='';
+  const sideName=side=>side==='blue'?'蓝方':side==='red'?'红方':side==='both'?'双方':'平局';
+  const n=value=>Math.round(Number(value)||0),score=value=>(Number(value)||0).toFixed(1);
+  const doctrineSelect=(side,selected)=>`<label>${sideName(side)} AI 战术<select name="${side}Doctrine">${Object.entries(AI_DOCTRINES).map(([key,d])=>`<option value="${key}" ${key===selected?'selected':''}>${esc(d.name)}</option>`).join('')}</select></label>`;
+  function openSetup(){
+    const s=getState(),a=s.automation||{},canReuse=s.phase==='setup'&&freeDeploy(s),active=isAutoBattle(s),minutes=Math.round((a.timeLimit||3600)/60);
+    modal('AI 对战 · 自动化模拟作战',`<div class="auto-intro"><span class="eyebrow">AI VS AI · OBSERVER MODE</span><h3>部署双方，由 AI 接管作战</h3><p>蓝红双方使用相同的决策规则，依靠各自发现的航迹侦察、机动与交战。你可以暂停、加速和切换观察视角。</p></div><form id="auto-setup-form"><label class="auto-full-label">初始编组<select name="preset">${AUTO_PRESETS.map(p=>`<option value="${p.id}" ${p.id===(a.preset||'surface')?'selected':''}>${esc(p.name)} · ${esc(p.description)}</option>`).join('')}</select></label><div class="auto-config-grid">${doctrineSelect('blue',a.blueDoctrine||'balanced')}${doctrineSelect('red',a.redDoctrine||'balanced')}<label>模拟时限<select name="duration">${[5,15,30,60,120,240].map(m=>`<option value="${m*60}" ${m===minutes?'selected':''}>${m} 分钟</option>`).join('')}</select></label><label>随机种子<input name="seed" type="number" min="0" max="4294967295" step="1" value="${a.seed??s.seed??2026}" required></label></div><div class="auto-doctrines">${Object.values(AI_DOCTRINES).map(d=>`<p><b>${esc(d.name)}</b> ${esc(d.description)}</p>`).join('')}</div><p class="auto-config-note">载入后仍处于部署阶段，可分别增删双方装备与选择挂载。部署完成后点击“开始 AI 对战”。相同部署、种子和战术可重复推演。</p><div class="auto-setup-actions"><button class="primary" type="submit" name="intent" value="preset">载入预设并部署 ↗</button>${canReuse?`<button class="outline" type="submit" name="intent" value="current">${active?'保存当前对战设置':'使用当前双方部署'}</button>`:''}</div></form>${!canReuse?'<p class="help-foot">当前战局可先保存，再载入新的 AI 对战。历史任务保留原有任务指挥模式。</p>':''}`);
+  }
+  function options(form){return {blueDoctrine:form.get('blueDoctrine'),redDoctrine:form.get('redDoctrine'),timeLimit:Number(form.get('duration')),seed:Number(form.get('seed'))};}
+  function submit(e){
+    if(e.target.id!=='auto-setup-form')return false;e.preventDefault();const f=new FormData(e.target),reuse=e.submitter?.value==='current',s=reuse?getState():createAutoBattle(f.get('preset'));
+    if(!result(configureAutoBattle(s,options(f))))return true;
+    view='both';lastBoard=lastResult='';replaceState(s);setWidgetOpen('autobattle',true);setWidgetOpen('fleet',true);toast('双方编组已载入，可继续部署或开始 AI 对战');return true;
+  }
+  function begin(){if(result(startAutoBattle(getState()))){onStart();setWidgetOpen('autobattle',true);toast('双方 AI 已接管，模拟作战开始');}return true;}
+  function exportReport(){const s=getState(),r=getBattleReport(s),blob=new Blob([JSON.stringify(r,null,2)],{type:'application/json'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=`SeaPower-AI-Report-${Math.floor(s.time)}.json`;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);toast('对战报告已导出');}
+  function report(){
+    const s=getState(),r=getBattleReport(s),a=s.automation||{},winner=r.winner?sideName(r.winner):'模拟进行中';
+    const metrics=[['deployed','投入单位（含放飞）'],['surviving','现存单位'],['lost','损失单位'],['damageDealt','造成损伤'],['shots','武器发射'],['interceptions','成功拦截'],['sorties','航空出动'],['score','作战评分']];
+    modal('AI 对战 · 作战报告',`<div class="auto-report-heading"><span class="eyebrow">AFTER ACTION REPORT</span><h3>${r.status==='ended'?`${winner}${r.winner==='draw'?'':'获胜'}`:'实时战况'}</h3><p>${esc(r.reason||'双方 AI 正在执行作战任务')} · ${clock(r.time||0)} / ${clock(r.timeLimit||a.timeLimit||3600)}</p></div><table class="auto-report-table"><thead><tr><th scope="col">统计</th><th scope="col">蓝方</th><th scope="col">红方</th></tr></thead><tbody>${metrics.map(([key,label])=>`<tr><th scope="row">${label}</th><td>${key==='score'?score(r.blue?.[key]):n(r.blue?.[key])}</td><td>${key==='score'?score(r.red?.[key]):n(r.red?.[key])}</td></tr>`).join('')}</tbody></table><p class="help-foot">蓝方战术：${esc(AI_DOCTRINES[a.blueDoctrine]?.name||'均衡')} · 红方战术：${esc(AI_DOCTRINES[a.redDoctrine]?.name||'均衡')} · 种子 ${n(a.seed)}。评分按实际造成的损伤占目标完整结构值的比例，乘以目标部署点累计；按分数结算时，差值小于 0.5 为平局。报告包含当前时点的数据。</p><h3 class="dialog-section-title">关键事件</h3><div class="auto-timeline">${(r.timeline||[]).slice(-60).map(e=>`<div class="auto-timeline-row"><time>${clock(e.time)}</time><span class="${e.side==='red'?'red-text':e.side==='blue'?'blue-text':''}">${e.side?`${sideName(e.side)} · `:''}${esc(e.message)}</span></div>`).join('')||'<p class="sensor-note">开始作战后记录事件。</p>'}</div><div class="auto-setup-actions"><button class="primary" data-auto-action="export-report">导出报告 JSON</button>${s.automation?.started?'<button class="outline" data-auto-action="restart">恢复本次初始部署</button>':''}</div>`);
+  }
+  function handleClick(b){
+    if(b.id==='auto-battle'||b.id==='auto-battle-mission'||b.hasAttribute('data-auto-setup')){openSetup();return true;}
+    if(b.dataset.autoView){view=b.dataset.autoView;onView(view);lastBoard='';render();return true;}
+    const action=b.dataset.autoAction;if(!action)return false;
+    if(action==='start')begin();
+    if(action==='deploy-blue'||action==='deploy-red')onDeploy(action==='deploy-blue'?'blue':'red');
+    if(action==='settings')openSetup();
+    if(action==='report')report();
+    if(action==='export-report')exportReport();
+    if(action==='stop'&&result(stopAutoBattle(getState()))){onStart();toast('模拟已结束，按当前战况结算');}
+    if(action==='restart'){view='both';lastBoard=lastResult='';replaceState(restartAutoBattle(getState()));setWidgetOpen('autobattle',true);toast('已恢复本次初始部署，可调整后重赛');}
+    return true;
+  }
+  function render(){
+    const s=getState(),active=isAutoBattle(s),el=document.querySelector('#autobattle-widget');el.classList.toggle('hidden',!active);if(!active){lastBoard=lastResult='';return;}
+    const r=getBattleReport(s),a=s.automation||{},setup=s.phase==='setup',running=s.phase==='running',remaining=Math.max(0,(r.timeLimit||a.timeLimit||3600)-(r.time||0));
+    document.querySelector('#auto-remaining').textContent=setup?'部署双方':s.phase==='ended'?'对战结束':`${clock(remaining)} 剩余`;
+    const signature=JSON.stringify([s.phase,view,a.blueDoctrine,a.redDoctrine]);
+    if(signature!==lastBoard){lastBoard=signature;document.querySelector('#autobattle-body').innerHTML=`<div class="auto-scoreboard">${['blue','red'].map(side=>`<div class="auto-score ${side}"><div><strong>${sideName(side)} AI</strong><span>${esc(AI_DOCTRINES[a[`${side}Doctrine`]]?.name||'均衡')}</span></div><b><span data-auto-stat="${side}.score">${score(r[side]?.score)}</span><small>评分</small></b><p>现存 <span data-auto-stat="${side}.surviving">${n(r[side]?.surviving)}</span> · 损失 <span data-auto-stat="${side}.lost">${n(r[side]?.lost)}</span><br>发射 <span data-auto-stat="${side}.shots">${n(r[side]?.shots)}</span> · 拦截 <span data-auto-stat="${side}.interceptions">${n(r[side]?.interceptions)}</span></p></div>`).join('')}</div><div class="auto-view-switch" aria-label="观察视角">${[['both','全局观察'],['blue','蓝方视角'],['red','红方视角']].map(([key,label])=>`<button data-auto-view="${key}" class="${view===key?'active':''}" aria-pressed="${view===key}">${label}</button>`).join('')}</div><p class="auto-observer-note">${setup?'部署阶段双方位置可见，可自由配置编组。':view==='both'?'全局观察显示双方位置；AI 只使用各自的传感器航迹。':`${sideName(view)}视角仅显示己方与已发现的接触。`}${a.started?' AI 接管指挥，可暂停观察。':''}</p>${setup?'<div class="auto-panel-actions"><button class="outline" data-auto-action="deploy-blue">部署蓝方</button><button class="outline red-text" data-auto-action="deploy-red">部署红方</button><button data-auto-action="settings">战术设置</button><button class="primary" data-auto-action="start">开始 AI 对战 ↗</button></div>':`<div class="auto-panel-actions"><button class="outline" data-auto-action="report">作战报告</button><button data-auto-action="export-report">导出报告</button>${running?'<button class="auto-stop" data-auto-action="stop">结束并结算</button>':'<button data-auto-action="restart">同编组重赛 ↗</button>'}</div>`}`;}
+    el.querySelectorAll('[data-auto-stat]').forEach(node=>{const [side,key]=node.dataset.autoStat.split('.');node.textContent=key==='score'?score(r[side]?.[key]):n(r[side]?.[key]);});
+    if(s.phase==='ended'){
+      const key=JSON.stringify([r.winner,r.reason,r.time,r.blue?.score,r.red?.score]);if(key!==lastResult){lastResult=key;document.querySelector('#result').innerHTML=`<span class="eyebrow">AI BATTLE COMPLETE</span><h2>${r.winner==='draw'?'双方战平':`${sideName(r.winner)}获胜`}</h2><p>${esc(r.reason||'模拟结束')}<br>推演时长 ${clock(r.time||s.time)}<br>蓝方 ${score(r.blue?.score)} 分 · 红方 ${score(r.red?.score)} 分</p><button class="primary" data-auto-action="report">查看作战报告 ↗</button><button class="outline" data-auto-action="restart">同编组重赛</button>`;}
+    }else lastResult='';
+  }
+  return {openSetup,submit,handleClick,render,begin,getView:()=>view,resetView(){view='both';lastBoard=lastResult='';}};
+}

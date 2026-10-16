@@ -3,9 +3,9 @@
 <head>
   <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#0c141b">
-  <meta name="description" content="一个简洁的 2D 海空战沙盘。部署舰队，管理传感器，指挥海空交战。">
+  <meta name="description" content="AI 对战自动化模拟、188 个真实现代装备型号、舰载航空与后勤；附三个真实海岸线历史单人任务。">
   <title>Sea Power · 海空战模拟平台</title>
-  <link rel="icon" href="./favicon.svg" type="image/svg+xml"><link rel="stylesheet" href="./style.css">
+  <link rel="icon" href="./favicon.svg" type="image/svg+xml"><link rel="stylesheet" href="./style.css?v=6">
 </head>
 <body>
   <main class="workspace">
@@ -21,13 +21,27 @@
     <div id="mission-body" class="widget-body" inert>
       <button id="scenario" class="scenario-name">海峡交锋 <span>⌄</span></button><p id="mission-subtitle" class="mission-subtitle">联合编队 · 对海与防空</p>
       <label class="weather-label">海况 <select id="weather" aria-label="海况"><option value="clear">晴朗 / 2 级</option><option value="storm">风暴 / 6 级</option></select></label>
+      <label class="check-row"><input type="checkbox" id="all-auto"> 蓝方全队自动交战</label>
+      <button id="auto-battle-mission" class="outline wide auto-entry">AI 对战 · 部署后自动作战 ↗</button><button id="catalog-mission" class="outline wide mechanics-button">现代装备库 · 188 型 ↗</button><button id="mechanics" class="outline wide mechanics-button">作战机制与平衡</button>
+      <button id="history-brief" class="outline wide mechanics-button hidden">历史背景与任务简报</button>
+      <div id="mission-objectives" class="mission-objectives"></div>
       <div id="briefing" class="briefing"><p id="brief-text"></p><button id="begin" class="primary wide">开始推演 ↗</button></div>
     </div>
   </section>
 
+  <section id="mission-strip" class="mission-strip hidden" aria-label="历史任务目标">
+    <div class="mission-strip-heading"><strong id="mission-strip-title"></strong><span id="mission-remaining"></span><button id="mission-strip-toggle" aria-label="收放任务目标" aria-expanded="true">⌃</button></div>
+    <div class="mission-strip-content"><div id="mission-strip-objectives"></div><div class="mission-strip-actions"><button id="mission-brief">查看简报</button><button id="mission-order" class="primary">执行任务</button></div></div>
+  </section>
+
+  <section id="autobattle-widget" class="hud-widget is-collapsed hidden" data-widget="autobattle" aria-label="AI 对战观察组件">
+    <div class="widget-heading" data-widget-drag="autobattle"><span>AI 对战</span><span id="auto-remaining" class="auto-remaining">部署双方</span><button data-widget-toggle="autobattle" aria-label="展开 AI 对战组件" aria-expanded="false" aria-controls="autobattle-body">⌄</button></div>
+    <div id="autobattle-body" class="widget-body" inert></div>
+  </section>
+
   <section id="time-widget" class="hud-widget" data-widget="time" aria-label="推演组件">
     <div class="widget-heading" data-widget-drag="time"><span>推演</span><span class="clock" id="clock">00:00:00</span><button data-widget-toggle="time" aria-label="收起推演组件" aria-expanded="true" aria-controls="time-body">⌃</button></div>
-    <div id="time-body" class="widget-body clock-control"><button id="play" class="play" title="开始或暂停推演（空格）" aria-label="开始推演">▶</button><div class="time-speeds" aria-label="时间倍率"><button data-speed="1">1×</button><button data-speed="10">10×</button><button data-speed="30" class="active">30×</button><button data-speed="120">120×</button></div></div>
+    <div id="time-body" class="widget-body clock-control"><button id="play" class="play" title="开始或暂停推演（空格）" aria-label="开始推演">▶</button><div class="time-speeds" aria-label="时间倍率"><button data-speed="1">1×</button><button data-speed="10" class="active">10×</button><button data-speed="30">30×</button><button data-speed="120">120×</button></div></div>
   </section>
 
   <section id="fleet-widget" class="hud-widget" data-widget="fleet" aria-label="舰队组件">
@@ -55,10 +69,10 @@
     <div id="log-body" class="widget-body" inert><div id="events" class="events" aria-live="polite"></div></div>
   </section>
 
-  <nav class="hud-dock" aria-label="组件控制台"><button id="dock-toggle" aria-label="收起组件控制台" aria-expanded="true" aria-controls="dock-tools">☷</button><div id="dock-tools"><button data-widget-toggle="mission">剧本</button><button data-widget-toggle="fleet">舰队</button><button data-widget-toggle="inspector">单位</button><button data-widget-toggle="view">海图</button><button data-widget-toggle="log">记录</button><button data-widget-toggle="time">推演</button><span class="dock-divider"></span><button id="collapse-all">全部收起</button><span class="dock-divider"></span><button id="save" title="保存到当前浏览器">保存</button><button id="load">载入</button><button id="export" title="导出当前战局 JSON">导出</button><button id="help" aria-label="操作指南">?</button></div></nav>
+  <nav class="hud-dock" aria-label="组件控制台"><button id="dock-toggle" aria-label="收起组件控制台" aria-expanded="true" aria-controls="dock-tools">☷</button><div id="dock-tools"><button id="auto-battle" class="auto-dock-entry">AI 对战</button><button data-widget-toggle="mission">剧本</button><button data-widget-toggle="fleet">舰队</button><button data-widget-toggle="inspector">单位</button><button data-widget-toggle="view">海图</button><button data-widget-toggle="log">记录</button><button data-widget-toggle="time">推演</button><span class="dock-divider"></span><button id="collapse-all">全部收起</button><span class="dock-divider"></span><button id="catalog">装备库</button><button id="save" title="保存到当前浏览器">保存</button><button id="load">载入</button><button id="export" title="导出当前战局 JSON">导出</button><button id="help" aria-label="操作指南">?</button></div></nav>
   <div id="toast" class="toast hidden" role="status"></div>
   <dialog id="dialog"><div id="dialog-content"></div></dialog>
   <input type="file" id="import-file" accept="application/json,.json" hidden>
-  <script type="module" src="./app.js"></script>
+  <script type="module" src="./app.js?v=6"></script>
 </body>
 </html>
