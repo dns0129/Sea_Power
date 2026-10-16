@@ -6,8 +6,10 @@
   <meta name="description" content="美中双方从 250 公里起始间隔进行 AI 对战模拟、188 个真实现代装备型号、舰载航空与后勤；附三个真实海岸线历史单人任务。">
   <title>Sea Power · 海空战模拟平台</title>
   <link rel="icon" href="./favicon.svg" type="image/svg+xml"><link rel="stylesheet" href="./style.css?v=0.7.0">
+  <link rel="stylesheet" href="./scenario-flow.css?v=0.8.0">
 </head>
-<body>
+<body class="flow-open">
+  <section id="game-flow" class="game-flow" aria-label="游戏入口与剧本简报"><header class="flow-header"><span class="flow-brand">SEA POWER</span><span>海空战模拟平台</span></header><p style="padding:32px;color:#82939e">正在载入海图与剧本…</p><noscript>请启用 JavaScript 后进入游戏。</noscript></section>
   <main class="workspace">
     <section class="map-panel" aria-label="战术海图">
       <canvas id="map" tabindex="0" aria-label="2D 战术海图：点击单位选择，右键海域设置航点；也可使用面板的航线按钮。"></canvas>
@@ -69,10 +71,10 @@
     <div id="log-body" class="widget-body" inert><div id="events" class="events" aria-live="polite"></div></div>
   </section>
 
-  <nav class="hud-dock" aria-label="组件控制台"><button id="dock-toggle" aria-label="收起组件控制台" aria-expanded="true" aria-controls="dock-tools">☷</button><div id="dock-tools"><button id="auto-battle" class="auto-dock-entry">AI 对战</button><button data-widget-toggle="mission">剧本</button><button data-widget-toggle="fleet">舰队</button><button data-widget-toggle="inspector">单位</button><button data-widget-toggle="view">海图</button><button data-widget-toggle="log">记录</button><button data-widget-toggle="time">推演</button><span class="dock-divider"></span><button id="collapse-all">全部收起</button><span class="dock-divider"></span><button id="catalog">装备库</button><button id="save" title="保存到当前浏览器">保存</button><button id="load">载入</button><button id="export" title="导出当前战局 JSON">导出</button><button id="help" aria-label="操作指南">?</button></div></nav>
+  <nav class="hud-dock" aria-label="组件控制台"><button id="dock-toggle" aria-label="收起组件控制台" aria-expanded="true" aria-controls="dock-tools">☷</button><div id="dock-tools"><button id="home">主页</button><button id="briefing-menu">简报</button><span class="dock-divider"></span><button id="auto-battle" class="auto-dock-entry">AI 对战</button><button data-widget-toggle="mission">剧本</button><button data-widget-toggle="fleet">舰队</button><button data-widget-toggle="inspector">单位</button><button data-widget-toggle="view">海图</button><button data-widget-toggle="log">记录</button><button data-widget-toggle="time">推演</button><span class="dock-divider"></span><button id="collapse-all">全部收起</button><span class="dock-divider"></span><button id="catalog">装备库</button><button id="save" title="保存到当前浏览器">保存</button><button id="load">载入</button><button id="export" title="导出当前战局 JSON">导出</button><button id="help" aria-label="操作指南">?</button></div></nav>
   <div id="toast" class="toast hidden" role="status"></div>
   <dialog id="dialog"><div id="dialog-content"></div></dialog>
   <input type="file" id="import-file" accept="application/json,.json" hidden>
-  <script type="module" src="./app.js?v=0.7.0"></script>
+  <script type="module" src="./app.js?v=0.8.0"></script>
 </body>
 </html>
