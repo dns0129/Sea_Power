@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createState,createAutoBattle,SCENARIOS,AUTO_PRESETS,serialize} from '../dist/engine.js?v=0.7.0';
-import {briefingChart,missionGoals,scenarioChoices,homeMenu} from '../dist/scenario-flow.js';
+import {briefingChart,missionGoals,scenarioChoices,scenarioThumbnail,homeMenu} from '../dist/scenario-flow.js';
 
 test('首页直接提供三个模式入口，不渲染海图或自动继续战局',()=>{
   const html=homeMenu();
@@ -42,4 +42,10 @@ test('手动沙盘开战后的简报不泄露敌方部署位置',()=>{
     for(const u of s.units.filter(u=>u.side==='red'))for(const key of ['x','y'])Object.defineProperty(u,key,{get(){throw Error('简报泄露敌方位置');}});
     assert.doesNotThrow(()=>briefingChart(s,{deployment:true}));
   }
+});
+
+test('历史剧本缩略海图使用各自真实海岸线，且不需要生成战斗单位',()=>{
+  const thumbnails=scenarioChoices('history').map(c=>scenarioThumbnail('history',c.id));
+  assert.equal(new Set(thumbnails).size,3);
+  for(const html of thumbnails){assert.match(html,/<polygon/);assert.doesNotMatch(html,/<circle|translate\(/);}
 });

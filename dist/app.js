@@ -4,7 +4,7 @@ import {createAutoBattleUI} from './auto-battle-ui.js?v=0.7.0';
 import {createLoadoutEditor,loadoutUsageText} from './loadout-ui.js?v=0.7.0';
 import {geographicMap,geoToWorld,formatGeo} from './geography.js';
 import {missionZone,missionSearch} from './historical-missions.js';
-import {createScenarioFlow} from './scenario-flow.js?v=0.8.1';
+import {createScenarioFlow} from './scenario-flow.js?v=0.8.2';
 
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
 const escape=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
