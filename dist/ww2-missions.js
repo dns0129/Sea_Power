@@ -1,7 +1,8 @@
-import {WW2_SCENARIOS,isWW2Scenario} from './ww2-data.js?v=0.10.0';
-import {geographicMap,geoToWorld} from './geography.js?v=0.10.0';
+import {WW2_SCENARIOS,isWW2Scenario} from './ww2-data.js?v=0.11.0';
+import {geographicMap,geoToWorld} from './geography.js?v=0.11.0';
+import {isSurfaceWW2,initializeSurfaceWW2,surfaceWW2Order,commandSurfaceWW2,updateSurfaceWW2,surfaceWW2Objectives,restoreSurfaceWW2} from './ww2-surface.js?v=0.11.0';
 
-export const ww2Zone=s=>({...geoToWorld(geographicMap(s),-177.38,28.207),radius:12,name:'中途岛防御区'});
+export const ww2Zone=s=>{const z=WW2_SCENARIOS[s.scenario].zone;return {...geoToWorld(geographicMap(s),z.lon,z.lat),radius:z.radius,name:z.name};};
 export const ww2Search=s=>geoToWorld(geographicMap(s),...WW2_SCENARIOS[s.scenario].search);
 const distance=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
 const live=u=>u.hp>0&&!u.exited;
@@ -22,6 +23,7 @@ function searchRoute(s,u){
 }
 
 export function initializeWW2(s,api){
+  if(isSurfaceWW2(s))return initializeSurfaceWW2(s,api);
   s.mission={id:s.scenario,escaped:[],secured:[],waves:[],orders:[],disabled:false,unload:0,reason:'',score:0,
     stage:'等待指挥 · PBY 已开始搜索',disabledCarriers:0,operationalCarriers:3,midwayHealth:100};
   const place=(type,side,name,x,y)=>{
@@ -50,6 +52,7 @@ export function initializeWW2(s,api){
 
 export function ww2Order(s,key,api){
   if(!isWW2Scenario(s)||s.phase!=='running')return {ok:false,error:'请先开始二战任务'};
+  if(isSurfaceWW2(s))return surfaceWW2Order(s,key,api);
   if(!['plan','search','cap','strike','manual'].includes(key))return {ok:false,error:'无效的二战作战指令'};
   if(key==='strike'&&!strikeReports(s,'blue',api).some(c=>c.domain==='surface'))return {ok:false,error:'尚无可用敌舰报告，请先派侦察机搜索'};
   if(key==='manual')s.mission.orders=[];
@@ -69,6 +72,7 @@ function capRoute(base,n){const d=9+n%3;return [{x:base.x-d,y:base.y-d},{x:base.
 
 export function commandWW2(s,api){
   if(!isWW2Scenario(s)||s.phase!=='running')return;
+  if(isSurfaceWW2(s))return commandSurfaceWW2(s,api);
   const orders=s.mission.orders,plan=orders.includes('plan');
   for(const base of [...s.units].filter(u=>live(u)&&api.types[u.type].deck)){
     const red=base.side==='red',search=red||plan||orders.includes('search'),cap=red||plan||orders.includes('cap'),strike=red||plan||orders.includes('strike');
@@ -122,6 +126,7 @@ export function commandWW2(s,api){
 }
 
 export function ww2Objectives(s){
+  if(isSurfaceWW2(s))return surfaceWW2Objectives(s);
   const m=s.mission;
   return [{text:`日军航母失去航空作战能力 ${m.disabledCarriers} / 3`,done:m.disabledCarriers>=3},
     {text:`美军可作战航母 ${m.operationalCarriers} / 至少 1`,failed:m.operationalCarriers<1,done:s.phase==='ended'&&s.result==='victory'},
@@ -129,6 +134,7 @@ export function ww2Objectives(s){
 }
 export function updateWW2(s,dt,api){
   if(s.phase!=='running')return;
+  if(isSurfaceWW2(s))return updateSurfaceWW2(s,dt,api);
   const m=s.mission,carriers=s.units.filter(u=>carrier(u,api)),base=s.units.find(u=>u.type==='ww2_midway');
   m.disabledCarriers=carriers.filter(u=>u.side==='red'&&!operational(u,api)).length;
   m.operationalCarriers=carriers.filter(u=>u.side==='blue'&&operational(u,api)).length;
@@ -146,6 +152,7 @@ export function updateWW2(s,dt,api){
 
 export function restoreWW2Mission(s,raw,api){
   const m=raw.mission;
+  if(isSurfaceWW2(s))return restoreSurfaceWW2(s,raw,api);
   if(!m||m.id!==s.scenario||!Array.isArray(m.orders)||m.orders.some(k=>!['plan','search','cap','strike'].includes(k)))throw Error('二战任务指令无效');
   if(s.units.some(u=>api.types[u.type].era!=='ww2')||s.units.filter(u=>carrier(u,api)&&u.side==='blue').length!==3||s.units.filter(u=>carrier(u,api)&&u.side==='red').length!==4||s.units.filter(u=>u.type==='ww2_midway').length!==1)throw Error('中途岛关键兵力缺失或年代不符');
   if(!Number.isFinite(m.score)||m.score<0||m.score>100)throw Error('二战任务评分无效');

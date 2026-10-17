@@ -1,4 +1,4 @@
-import {TYPES,ALTITUDES,SCENARIOS,airborne,visibleContacts,freeDeploy,isAutoBattle,isWW2,landFor,worldFor,factionName,weaponStats} from './engine.js?v=0.10.0';
+import {TYPES,ALTITUDES,SCENARIOS,airborne,visibleContacts,freeDeploy,isAutoBattle,isWW2,landFor,worldFor,factionName,weaponStats,historicalObjectives} from './engine.js?v=0.11.0';
 
 // A visual library, independent of simulation types. Replace these GLBs to
 // change the art without changing platform statistics or saved games.
@@ -14,6 +14,7 @@ export const MODEL_PROFILES=Object.freeze({
   helicopter:{name:'通用舰载直升机',length:18,size:1.35},
   facility:{name:'通用岸基设施',length:34,size:2.8},
   'ww2-carrier':{name:'二战直通甲板航母',length:250,size:6.7,source:'ww2-fleet.blend'},
+  'ww2-battleship':{name:'二战通用战列舰',length:250,size:5.8,source:'ww2-fleet.blend'},
   'ww2-cruiser':{name:'二战重巡洋舰',length:188,size:4.2,source:'ww2-fleet.blend'},
   'ww2-destroyer':{name:'二战驱逐舰',length:119,size:3.1,source:'ww2-fleet.blend'},
   'ww2-fighter':{name:'二战螺旋桨战斗机',length:9,size:1.4,source:'ww2-fleet.blend'},
@@ -27,6 +28,8 @@ export function modelFor(type){
   const t=TYPES[type];
   if(!t)return 'frigate';
   if(t.era==='ww2'){
+    if(t.ww2Model)return t.ww2Model;
+    if(t.ww2Role==='battleship')return 'ww2-battleship';
     if(t.domain==='land')return 'ww2-airfield';
     if(t.ww2Role==='carrier')return 'ww2-carrier';
     if(t.domain==='surface')return t.category==='cruiser'?'ww2-cruiser':'ww2-destroyer';
@@ -58,6 +61,7 @@ export function sceneUnit(u){
     inAir,depth:u.depth,flightState:u.flightState,
     fuel:t.domain==='air'?Math.max(0,Math.min(100,u.fuel/(t.endurance*60)*100)):null,
     radar:u.radar,sonar:u.sonar,esm:u.esm,datalink:u.datalink,
+    smoke:t.smoke?{charges:u.smokeCharges,until:u.smokeUntil,ready:u.smokeReady}:null,radarFireControl:!!t.radarFireControl,
     description:t.desc,role:t.realRole||t.category||'',ww2:t.era==='ww2',deck:!!t.deck,deckReady:u.deckReady,supply:u.supply,
     weapons:Object.entries(u.weapons).filter(([,n])=>n>0).map(([id,count])=>({id,count,name:weaponStats(u,id).name})),
     airwing:Object.entries(u.airwing||{}).filter(([,n])=>n>0).map(([id,count])=>({id,name:TYPES[id]?.name||id,count})),
@@ -77,7 +81,7 @@ export function seaSnapshot(state,{side='blue',all=false}={}){
     id:c.id,name:c.label,x:c.x,y:c.y,domain:c.domain,
     side:side==='blue'?'red':'blue',height:c.domain==='air'?4.5:0,
     source:c.source,quality:c.quality,stale:c.stale,age:Math.max(0,state.time-c.time),contact:true,
-    ...(isWW2(state)&&c.classification?{model:({carrier:'ww2-carrier',surface:'ww2-cruiser',fighter:'ww2-fighter',dive:'ww2-dive',torpedo:'ww2-torpedo',scout:'ww2-scout',land:'ww2-airfield'})[c.classification],heading:c.course||0}:{})
+    ...(isWW2(state)&&c.classification?{model:({carrier:'ww2-carrier',battleship:'ww2-battleship',surface:'ww2-cruiser',fighter:'ww2-fighter',dive:'ww2-dive',torpedo:'ww2-torpedo',scout:'ww2-scout',land:'ww2-airfield'})[c.classification],heading:c.course||0}:{})
   }));
   const projectiles=isWW2(state)?state.missiles.filter(m=>m.side===side||global||m.weapon!=='torpedo'&&units.some(u=>Math.hypot(u.x-m.x,u.y-m.y)<3)).map(m=>({
     id:m.id,x:m.x,y:m.y,heading:m.heading,side:m.side,weapon:m.weapon,
@@ -88,5 +92,7 @@ export function seaSnapshot(state,{side='blue',all=false}={}){
     scenario:state.scenario,title:SCENARIOS[state.scenario].name,phase:state.phase,
     paused:state.paused,time:state.time,side,global,
     sideName:factionName(state,side),observer:global?'全局观察':`${factionName(state,side)}视角`,
-    projectiles,effects,ww2:isWW2(state),task:isWW2(state)?{stage:state.mission.stage,disabled:state.mission.disabledCarriers,carriers:state.mission.operationalCarriers,base:state.mission.midwayHealth,plan:state.mission.orders.includes('plan')}:null};
+    projectiles,effects,night:!!SCENARIOS[state.scenario].night,
+    smoke:isWW2(state)?(state.smoke||[]).filter(c=>c.until>state.time&&units.some(u=>Math.hypot(u.x-c.x,u.y-c.y)<18)).map(c=>({x:c.x,y:c.y,radius:c.radius,born:c.born,until:c.until})):[],
+    ww2:isWW2(state),task:isWW2(state)?{stage:state.mission.stage,objectives:historicalObjectives(state),order:SCENARIOS[state.scenario].order,actions:SCENARIOS[state.scenario].actions||[['search','搜索'],['cap','防空'],['strike','攻击波']],plan:state.mission.orders.includes('plan'),result:state.result,score:state.mission.score,reason:state.mission.reason}:null};
 }

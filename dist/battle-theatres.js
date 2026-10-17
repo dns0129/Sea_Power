@@ -1,3 +1,4 @@
+import {WW2_SCENARIOS} from './ww2-data.js?v=0.11.0';
 // Fictional exercise geometry. Coordinates remain nautical miles throughout the engine.
 export const KM_PER_NM=1.852;
 function theatre(initialSeparationKm){const separation=initialSeparationKm/KM_PER_NM;return {
@@ -16,7 +17,7 @@ export const USCN_THEATRE=theatre(250);
 // Existing v6 saves retain their original 500 km stations and deployment limits.
 const THEATRES={uscn250:USCN_THEATRE,uscn500:theatre(500)};
 export const getBattleTheatre=s=>Object.hasOwn(THEATRES,s?.mapId)?THEATRES[s.mapId]:null;
-export const factionName=(s,side)=>getBattleTheatre(s)?.factions[side]?.name||(side==='blue'?'蓝方':'红方');
+export const factionName=(s,side)=>getBattleTheatre(s)?.factions[side]?.name||WW2_SCENARIOS[s?.scenario]?.[side==='blue'?'blueName':'redName']||(side==='blue'?'蓝方':'红方');
 export function inDeploymentZone(s,side,p){const t=getBattleTheatre(s);return !t||(side==='blue'?p.x<=t.anchors.blue.x+1e-9:p.x>=t.anchors.red.x-1e-9);}
 export function nearestSeparationKm(units){
   const blue=units.filter(u=>u.side==='blue'),red=units.filter(u=>u.side==='red');

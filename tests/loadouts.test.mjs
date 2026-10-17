@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import * as E from '../dist/engine.js?v=0.10.0';
+import * as E from '../dist/engine.js?v=0.11.0';
 
 const naval=(name='反舰与自卫')=>({name,mission:'naval',weapons:{aam:2,ir:2,asm:2}});
 const raw=s=>JSON.parse(E.serialize(s));

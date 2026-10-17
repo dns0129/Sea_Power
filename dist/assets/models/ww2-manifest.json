@@ -5,6 +5,12 @@
   "up": "+Y",
   "source": "ww2-fleet.blend",
   "models": {
+    "ww2-battleship": {
+      "name": "二战通用战列舰",
+      "file": "generic-ww2-battleship.glb",
+      "length": 250,
+      "parts": 169
+    },
     "ww2-carrier": {
       "name": "二战直通甲板航母",
       "file": "generic-ww2-carrier.glb",

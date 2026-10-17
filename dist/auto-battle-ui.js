@@ -1,4 +1,4 @@
-import {AUTO_PRESETS,AI_DOCTRINES,createAutoBattle,configureAutoBattle,startAutoBattle,isAutoBattle,stopAutoBattle,getBattleReport,restartAutoBattle,freeDeploy,getBattleTheatre,factionName} from './engine.js?v=0.10.0';
+import {AUTO_PRESETS,AI_DOCTRINES,createAutoBattle,configureAutoBattle,startAutoBattle,isAutoBattle,stopAutoBattle,getBattleReport,restartAutoBattle,freeDeploy,getBattleTheatre,factionName} from './engine.js?v=0.11.0';
 
 // 观察者视角只影响显示；双方 AI 始终使用引擎维护的各自航迹。
 export function createAutoBattleUI({getState,replaceState,modal,escape:esc,clock,toast,result,onStart,onView,onDeploy,setWidgetOpen}){

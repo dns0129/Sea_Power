@@ -1,5 +1,5 @@
-import {TYPES,WEAPONS,freeDeploy,getBattleTheatre,factionName,canDeployType,supportsCustomLoadout} from './engine.js?v=0.10.0';
-import {MODEL_SOURCES,PERIODS,CATEGORIES,PAYLOAD_WEIGHTS} from './modern-catalog.js?v=0.10.0';
+import {TYPES,WEAPONS,freeDeploy,getBattleTheatre,factionName,canDeployType,supportsCustomLoadout} from './engine.js?v=0.11.0';
+import {MODEL_SOURCES,PERIODS,CATEGORIES,PAYLOAD_WEIGHTS} from './modern-catalog.js?v=0.11.0';
 export function createEquipmentUI({getState,modal,escape:esc,onDeploy,getSide,setSide,loadoutEditor}){
   let deploy=false,query='',country='',category='',period='',series='modern',page=0,detail=null,chosen=null,timer;
   const size=24,modern=Object.entries(TYPES).filter(([,t])=>t.model);

@@ -1,5 +1,5 @@
 // Deterministic arena commander. Decisions use friendly state, public terrain and usable contacts.
-import {getBattleTheatre,factionName} from './battle-theatres.js?v=0.10.0';
+import {getBattleTheatre,factionName} from './battle-theatres.js?v=0.11.0';
 export const AI_DOCTRINES={
   balanced:{name:'均衡协同',description:'兼顾搜索、支援和适中距离交战。',standoff:.72,speed:.65},
   aggressive:{name:'积极进攻',description:'更快接敌，接近后再集中火力。',standoff:.60,speed:.85},

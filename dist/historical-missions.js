@@ -1,6 +1,6 @@
-import {isWW2Scenario} from './ww2-data.js?v=0.10.0';
-import {initializeWW2,ww2Order,ww2Objectives,updateWW2,ww2Zone,ww2Search} from './ww2-missions.js?v=0.10.0';
-import {REAL_MAPS,geoToWorld} from './geography.js?v=0.10.0';
+import {isWW2Scenario} from './ww2-data.js?v=0.11.0';
+import {initializeWW2,ww2Order,ww2Objectives,updateWW2,ww2Zone,ww2Search} from './ww2-missions.js?v=0.11.0';
+import {REAL_MAPS,geoToWorld} from './geography.js?v=0.11.0';
 export const HISTORICAL_SCENARIOS={
   bubiyan91:{name:'布比延封锁线',subtitle:'1991 · 海湾战争 · 拦截撤退',mapId:'bubiyan',budget:0,historical:true,date:'1991-01-29—31',duration:1800,difficulty:'入门',
     brief:'指挥舰载直升机与攻击机，在东侧脱离线之前击沉至少 3 艘撤退舰艇；最多允许 1 艘脱离。点击“执行拦截”让航空队进入搜索区，海上兵力负责掩护。任务限时 30 分钟。',

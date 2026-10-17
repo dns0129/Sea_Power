@@ -84,6 +84,36 @@ def ww2escort(destroyer=False):
         m.line('CatapultRail',(-8,-33,z+3),(8,-27,z+3),.25,m.HULL)
     m.railings(L,W,z)
 
+def ww2battleship():
+    L,W=250,33;z=m.hull(L,W,8.5)
+    m.box('ArmouredCitadel',(0,-2,z+1),(25,128,2),m.DECK,.7)
+    # Four twin main turrets, two superfiring pairs. Generic editable silhouette.
+    for y,h in [(91,0),(65,3),(-67,3),(-93,0)]:
+        old=set(m.collection.objects);turret(y,z+h,5.4,2)
+        if y<0:
+            for obj in set(m.collection.objects)-old:
+                obj.location.x=-obj.location.x;obj.location.y=2*y-obj.location.y;obj.rotation_euler.z+=math.pi
+    bridge(29,z+2,14)
+    m.box('ArmouredConningTower',(0,39,z+7),(8,8,9),m.HULL,1.2)
+    m.box('AdmiralBridge',(0,28,z+14),(16,9,3),m.LIGHT,.5)
+    m.line('MainRangefinder',(-10,29,z+18),(10,29,z+18),.65,m.LIGHT)
+    for y in [3,-25]:
+        m.box('Funnel',(0,y,z+11),(10,13,19),m.HULL,1.6)
+        m.box('FunnelCap',(0,y,z+20.6),(10.5,13.5,.8),m.DARK,1)
+    m.box('AftSuperstructure',(0,-47,z+5),(13,17,10),m.HULL,.6)
+    m.line('AftMast',(0,-44,z+10),(0,-45,z+31),.28,m.DARK)
+    m.line('SignalYard',(-6,-45,z+25),(6,-45,z+25),.16,m.DARK)
+    for sign in [-1,1]:
+        for y in [-48,-19,13,48]:
+            x=sign*13.7
+            m.cylinder('SecondaryBarbette',(x,y,z+1.2),2.2,1.6,m.DARK)
+            m.box('SecondaryTurret',(x,y,z+2.7),(4.5,4.7,2.8),m.HULL,.5)
+            for dx in [-.5,.5]:m.line('SecondaryGunBarrel',(x+dx,y+1,z+2.8),(x+dx,y+6,z+3.3),.13,m.DARK)
+        for y in [-102,-72,-39,-4,33,77]:aa(sign*15.8,y,z+1)
+        for y in [-35,-11]:m.sphere('ShipsBoat',(sign*9,y,z+4),(1.4,5.5,.8),m.LIGHT)
+        m.line('BoatCrane',(sign*8,-37,z+2),(sign*11,-28,z+11),.2,m.HULL)
+    m.railings(L,W,z)
+
 def propeller(y,z,r):
     verts=[];faces=[]
     for j in range(3):
@@ -144,6 +174,7 @@ def ww2airfield():
     m.line('RadioMast',(25,25,0),(25,25,18),.12,m.DARK)
 
 builders={
+ 'ww2-battleship':('二战通用战列舰',250,ww2battleship),
  'ww2-carrier':('二战直通甲板航母',250,ww2carrier),
  'ww2-cruiser':('二战重巡洋舰',188,lambda:ww2escort(False)),
  'ww2-destroyer':('二战驱逐舰',119,lambda:ww2escort(True)),

@@ -1,6 +1,6 @@
-import {SCENARIOS,TYPES,AUTO_PRESETS,AI_DOCTRINES,createState,createAutoBattle,configureAutoBattle,start,isHistorical,isWW2,isAutoBattle,freeDeploy,worldFor,landFor,getBattleTheatre,factionName} from './engine.js?v=0.10.0';
-import {geographicMap,geoToWorld} from './geography.js?v=0.10.0';
-import {missionZone,missionSearch} from './historical-missions.js?v=0.10.0';
+import {SCENARIOS,TYPES,AUTO_PRESETS,AI_DOCTRINES,createState,createAutoBattle,configureAutoBattle,start,isHistorical,isWW2,isAutoBattle,freeDeploy,worldFor,landFor,getBattleTheatre,factionName} from './engine.js?v=0.11.0';
+import {geographicMap,geoToWorld} from './geography.js?v=0.11.0';
+import {missionZone,missionSearch} from './historical-missions.js?v=0.11.0';
 
 const esc=value=>String(value).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const number=value=>Number(value).toFixed(1).replace(/\.0$/,'');
@@ -37,6 +37,7 @@ export function scenarioThumbnail(mode,id){
 }
 
 export function missionGoals(s){
+  if(SCENARIOS[s.scenario]?.goals)return SCENARIOS[s.scenario].goals;
   if(isWW2(s))return [
     ['使至少三艘日军航母失去航空作战能力','通过舰载机攻击使航母结构低于 40%，关闭其飞行甲板。'],
     ['保住中途岛和至少一艘可作战航母','中途岛设施损失或美军航母均失去航空作战能力，任务失败。'],
@@ -100,7 +101,7 @@ export function briefingChart(s,{deployment=false,compact=false,home=false}={}){
       for(const side of ['blue','red'])svg+=`<path d="M${x(theatre.anchors[side].x)} ${y(8)}V${y(world.height-8)}" stroke="${side==='blue'?'#80cbb880':'#e8848080'}" stroke-dasharray="5 6"/>`;
       svg+=`<text x="500" y="35" text-anchor="middle">初始部署间隔 ≥ ${theatre.initialSeparationKm} 公里</text>`;
     }
-    const units=s.units.filter(u=>u.hp>0&&!u.exited&&(u.side==='blue'||deployment&&showOpposing(s)));
+    const units=s.units.filter(u=>(u.side==='blue'||deployment&&showOpposing(s))&&u.hp>0&&!u.exited);
     units.forEach((u,i)=>{
       const domain=TYPES[u.type].domain,color=u.side==='blue'?'#8cd3bd':'#e88480';
       if(home&&u.route?.length)svg+=`<polyline points="${route([u,...u.route])}" fill="none" stroke="#80cbb84d" stroke-dasharray="6 5"/>`;
@@ -131,7 +132,7 @@ export function createScenarioFlow({root,getState,onPause,onLaunch,onResume,hasS
     mode=nextMode;choice=nextChoice;selections[mode]=choice;
     draft=mode==='ai'?createAutoBattle(choice):createState(choice);readOnly=false;
   }
-  const header=()=>`<header class="flow-header"><button class="flow-brand" data-flow-action="home" aria-label="返回主页">SEA POWER</button><span class="flow-header-label">${screen==='brief'?'任务简报':'海空战模拟平台'}</span><span class="flow-header-context">${screen==='brief'?`${esc(modeName(draft))} / ${esc(scenarioName(draft))}`:'海空联合战术沙盘'}</span><small class="flow-version">v0.10.0</small>${screen==='home'?'<button data-flow-action="help">操作指南</button>':`<button data-flow-action="${session?'resume':'home'}">${session?'返回战场':'返回主页'} <span aria-hidden="true">×</span></button>`}</header>`;
+  const header=()=>`<header class="flow-header"><button class="flow-brand" data-flow-action="home" aria-label="返回主页">SEA POWER</button><span class="flow-header-label">${screen==='brief'?'任务简报':'海空战模拟平台'}</span><span class="flow-header-context">${screen==='brief'?`${esc(modeName(draft))} / ${esc(scenarioName(draft))}`:'海空联合战术沙盘'}</span><small class="flow-version">v0.11.0</small>${screen==='home'?'<button data-flow-action="help">操作指南</button>':`<button data-flow-action="${session?'resume':'home'}">${session?'返回战场':'返回主页'} <span aria-hidden="true">×</span></button>`}</header>`;
   function home(){
     return homeMenu({session,hasSave:!session&&hasSave()});
   }
@@ -151,7 +152,7 @@ export function createScenarioFlow({root,getState,onPause,onLaunch,onResume,hasS
   }
   function details(){
     const t=SCENARIOS[draft.scenario],w=worldFor(draft),theatre=getBattleTheatre(draft);
-    return `<h1 tabindex="-1">剧本细节</h1><div class="flow-split flow-details"><section><div class="flow-text-section"><h2>${fixed(draft)?'历史背景':'演练背景'}</h2><p>${esc(t.history||t.brief)}</p></div><div class="flow-text-section"><h2>${fixed(draft)?'剧本改编':'指挥与规则'}</h2><p>${esc(t.adaptation||(isAutoBattle(draft)?'双方 AI 使用各自发现的有效航迹决策。进入传感器和武器允许的范围后交战；全局观察不会向 AI 提供隐藏信息。':'可以在部署阶段配置单位、挂载和编队。进入战场后，使用暂停、航点、传感器与自动交战控制海空协同。'))}</p></div>${isAutoBattle(draft)?aiSettings():''}${t.sourceURL?`<a class="flow-source" href="${esc(t.sourceURL)}" target="_blank" rel="noopener noreferrer">资料来源：${esc(t.sourceTitle)} ↗</a>`:''}</section><aside class="flow-info-panel"><h2>${icon(fixed(draft)?'book':'grid')} 任务资料</h2>${t.date?row('行动时间',t.date):''}${row('作战区域',mapName(draft))}${row('地图类型',isWW2(draft)?'环礁简化示意':fixed(draft)?'真实海岸线':'虚构演练海域')}${row('海域尺寸',`${number(w.width)} × ${number(w.height)} 海里`)}${theatre?row('初始间隔',`≥ ${theatre.initialSeparationKm} 公里`):''}<div class="flow-tip"><h3>指挥提示</h3><p>先建立有效航迹，再组织交战。</p></div>${isWW2(draft)?'<p class="flow-note">环礁轮廓经简化，初始阵位为战术化改编，并非精确历史海图。</p>':fixed(draft)?'<p class="flow-note">使用 Natural Earth 现代海岸线裁切，地图不是当年航海图。</p>':''}</aside></div>`;
+    return `<h1 tabindex="-1">剧本细节</h1><div class="flow-split flow-details"><section><div class="flow-text-section"><h2>${fixed(draft)?'历史背景':'演练背景'}</h2><p>${esc(t.history||t.brief)}</p></div><div class="flow-text-section"><h2>${fixed(draft)?'剧本改编':'指挥与规则'}</h2><p>${esc(t.adaptation||(isAutoBattle(draft)?'双方 AI 使用各自发现的有效航迹决策。进入传感器和武器允许的范围后交战；全局观察不会向 AI 提供隐藏信息。':'可以在部署阶段配置单位、挂载和编队。进入战场后，使用暂停、航点、传感器与自动交战控制海空协同。'))}</p></div>${isAutoBattle(draft)?aiSettings():''}${t.sourceURL?`<a class="flow-source" href="${esc(t.sourceURL)}" target="_blank" rel="noopener noreferrer">资料来源：${esc(t.sourceTitle)} ↗</a>`:''}</section><aside class="flow-info-panel"><h2>${icon(fixed(draft)?'book':'grid')} 任务资料</h2>${t.date?row('行动时间',t.date):''}${row('作战区域',mapName(draft))}${row('地图类型',isWW2(draft)?'简化地理海图':fixed(draft)?'真实海岸线':'虚构演练海域')}${row('海域尺寸',`${number(w.width)} × ${number(w.height)} 海里`)}${theatre?row('初始间隔',`≥ ${theatre.initialSeparationKm} 公里`):''}<div class="flow-tip"><h3>指挥提示</h3><p>先建立有效航迹，再组织交战。</p></div>${isWW2(draft)?'<p class="flow-note">海岸轮廓经简化，初始阵位为战术化改编，并非精确历史海图。</p>':fixed(draft)?'<p class="flow-note">使用 Natural Earth 现代海岸线裁切，地图不是当年航海图。</p>':''}</aside></div>`;
   }
   function deployment(){
     const units=friendly(draft),showRed=showOpposing(draft);
@@ -212,7 +213,7 @@ export function createScenarioFlow({root,getState,onPause,onLaunch,onResume,hasS
     }
   });
   return {home:showHome,selection:showSelection,currentBrief:showCurrent,isOpen:()=>!root.hidden,
-    selectScenario(id){pause();select(SCENARIOS[id]?.historical?'history':id==='autobattle'?'ai':'sandbox',id==='autobattle'?'surface':id);screen='brief';page=0;render();},
+    selectScenario(id){pause();select(SCENARIOS[id]?.era==='ww2'?'ww2':SCENARIOS[id]?.historical?'history':id==='autobattle'?'ai':'sandbox',id==='autobattle'?'surface':id);screen='brief';page=0;render();},
     markSession(){session=true;close();},
   };
 }
