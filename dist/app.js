@@ -4,7 +4,8 @@ import {createAutoBattleUI} from './auto-battle-ui.js?v=0.7.0';
 import {createLoadoutEditor,loadoutUsageText} from './loadout-ui.js?v=0.7.0';
 import {geographicMap,geoToWorld,formatGeo} from './geography.js';
 import {missionZone,missionSearch} from './historical-missions.js';
-import {createScenarioFlow} from './scenario-flow.js?v=0.8.2';
+import {createScenarioFlow} from './scenario-flow.js?v=0.9.0';
+import {seaSnapshot} from './sea-scene-data.js?v=0.9.0';
 
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
 const escape=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -20,14 +21,51 @@ const viewContacts=()=>globalObserver()?[]:visibleContacts(state,observerSide())
 const displayedOwnUnits=()=>state.units.filter(u=>!u.exited&&(globalObserver()||u.side===observerSide()));
 let layers={sensors:true,trails:false,grid:true},lastFrame=performance.now(),lastUI=0,lastList='',lastInspector='',lastEvents='',toastTimer,draggingSlider=false;
 const canvas=$('#map'),ctx=canvas.getContext('2d'),camera={x:120,y:85,zoom:1,base:1};let width=0,height=0;
+let battleView='map',seaView=null,seaPromise=null,viewEpoch=0;
 const flow=createScenarioFlow({root:$('#game-flow'),getState:()=>state,
   onPause:()=>{state.paused=true;setMode(null);$('#dialog').close();},
-  onReveal:()=>{resize();renderUI();},
-  onLaunch:next=>{autoUI.resetView();replaceState(next);setWidgetOpen('time',true);setWidgetOpen('mission',isHistorical(state));if(state.phase==='setup')setWidgetOpen('fleet',true);if(isAutoBattle(state))setWidgetOpen('autobattle',true);},
+  onReveal:()=>{resize();seaView?.setActive(battleView==='sea');renderUI();},
+  onLaunch:next=>{autoUI.resetView();replaceState(next);setWidgetOpen('time',true);setWidgetOpen('mission',isHistorical(state));if(state.phase==='setup')setWidgetOpen('fleet',true);if(isAutoBattle(state))setWidgetOpen('autobattle',true);setBattleView('sea');},
   onResume:()=>{try{return loadText(localStorage.getItem('seapower-save-v1'));}catch{toast('无法访问浏览器存档，请导入 JSON 战局',true);return false;}},
   hasSave:()=>{try{const saved=localStorage.getItem('seapower-save-v1');return !!saved&&!!deserialize(saved);}catch{return false;}},
   onImport:()=>$('#import-file').click(),onHelp:openHelp,onError:message=>toast(message,true),
 });
+
+async function setBattleView(next){
+  const epoch=++viewEpoch;battleView=next;setMode(null);
+  document.body.classList.toggle('sea-active',next==='sea');
+  $('#sea-view').hidden=next!=='sea';$('#sea-loading').hidden=next!=='sea'||!!seaView;
+  $('#view-3d').setAttribute('aria-pressed',String(next==='sea'));
+  if(next==='map'){
+    seaView?.setActive(false);resize();
+    const picture=seaSnapshot(state,{side:observerSide(),all:globalObserver()});
+    if(!picture.units.some(u=>u.id===selected))selected=picture.units.find(u=>u.side===observerSide())?.id;
+    if(target&&!picture.contacts.some(u=>u.id===target))target=null;
+    const point=[...picture.units,...picture.contacts].find(u=>u.id===(target||selected));
+    if(point){camera.x=point.x;camera.y=point.y;}
+    canvas.focus({preventScroll:true});renderUI();return;
+  }
+  try{
+    if(!seaView){
+      if(!seaPromise)seaPromise=import('./sea-view.js?v=0.9.0').then(({createSeaView})=>createSeaView({
+        root:$('#sea-view'),
+        onSelect:item=>{if(item.contact)target=item.id;else{selected=item.id;target=null;}lastInspector=lastList='';renderUI();},
+        onMap:()=>{setBattleView('map');setWidgetOpen('inspector',true);},
+        onPlay:togglePlay,
+        onSpeed:value=>{timeScale=value;$$('[data-speed]').forEach(b=>b.classList.toggle('active',Number(b.dataset.speed)===value));},
+        onHome:()=>flow.home(),onBrief:()=>flow.currentBrief(),onSave:()=>$('#save').click(),
+        onProgress:(done,total)=>{$('#sea-load-progress').textContent=`准备通用模型 ${done} / ${total}`;},
+        onError:message=>{setBattleView('map');seaView?.dispose();seaView=null;toast(message,true);}
+      })).finally(()=>{seaPromise=null;});
+      seaView=await seaPromise;
+    }
+    if(epoch!==viewEpoch)return;
+    $('#sea-loading').hidden=true;seaView.setActive(!flow.isOpen());renderUI();
+  }catch(error){
+    if(epoch!==viewEpoch)return;
+    setBattleView('map');toast(`${error.message}，已切换到战术海图，可点击 3D 海面重试`,true);
+  }
+}
 
 // 浮层独立于海图：收放、拖动只改变组件，不触发海图缩放或重新定位。
 const widgetNames={mission:'剧本',fleet:'舰队',inspector:'单位控制',view:'海图工具',log:'作战记录',time:'推演',autobattle:'AI 对战'};
@@ -51,7 +89,7 @@ function icon(type){const domain=TYPES[type]?.domain;return `<svg viewBox="0 0 3
 function toast(message,error=false){$('#toast').textContent=message;$('#toast').className=`toast${error?' error':''}`;clearTimeout(toastTimer);toastTimer=setTimeout(()=>$('#toast').classList.add('hidden'),3200);}
 function result(r,success){if(!r.ok)toast(r.error,true);else if(success)toast(success);lastInspector='';lastList='';renderUI();return r.ok;}
 function modal(title,body){$('#dialog').classList.remove('catalog-dialog','loadout-dialog');$('#dialog-content').innerHTML=`<div class="dialog-head"><h2>${title}</h2><button data-close aria-label="关闭窗口">×</button></div><div class="dialog-body">${body}</div>`;if(!$('#dialog').open)$('#dialog').showModal();}
-function replaceState(next){state=next;deploySide='blue';selected=state.units.find(u=>u.side==='blue'&&u.hp>0)?.id;target=null;mode=null;tab='fleet';fitCamera();lastList=lastInspector=lastEvents='';$('#dialog').close();$('#inspector').scrollTop=0;$('#inspector-body').scrollTop=0;setMode(null);resize();renderUI();}
+function replaceState(next){state=next;seaView?.reset();deploySide='blue';selected=state.units.find(u=>u.side==='blue'&&u.hp>0)?.id;target=null;mode=null;tab='fleet';fitCamera();lastList=lastInspector=lastEvents='';$('#dialog').close();$('#inspector').scrollTop=0;$('#inspector-body').scrollTop=0;setMode(null);resize();renderUI();}
 function resetScenario(id){flow.selectScenario(id);}
 function setMode(next){mode=next;$('#briefing').classList.toggle('hidden',!!mode||state.phase!=='setup');const banner=$('#mode-banner');banner.classList.toggle('hidden',!mode);if(mode){banner.innerHTML=`${mode.kind==='deploy'?`部署${factionName(state,deploySide)} ${TYPES[mode.type].name} · ${TYPES[mode.type].domain==='land'?'点击陆地放置':'点击海图放置'}`:'点击海域设置航点 · Shift 追加航点'}<button data-cancel-mode>取消</button>`;}canvas.style.cursor=mode?'crosshair':'default';}
 function togglePlay(){if(state.phase==='setup'){if(isAutoBattle(state)){autoUI.begin();return;}if(unitById(state,selected)?.side==='red')selected=state.units.find(u=>u.side==='blue')?.id;if(result(start(state)))setMode(null);}else if(state.phase==='running'){state.paused=!state.paused;toast(state.paused?'推演暂停':'继续推演');}renderUI();}
@@ -71,9 +109,9 @@ function renderHistoricalMission(){
   $('#mission-order').textContent=withdraw?'执行撤离':t.order;$('#mission-order').dataset.missionOrder=withdraw?'withdraw':t.orderKey;$('#mission-order').disabled=state.phase!=='running';
   $('#mission-strip').classList.toggle('urgent',remaining<180&&state.phase==='running');
 }
-function openHelp(){modal('指挥官操作指南',`<p>历史任务先看简报，开始后执行任务指令；自由沙盘可以自行部署与规划战术。</p><ol class="help-list"><li><b>01 · 部署与侦察</b>在舰队组件点“部署单位”，按水面、水下、航空、岸基筛选。预警机默认开雷达，其他蓝方平台可手动开启；岸基必须放在陆地。历史任务使用固定兵力；“执行拦截／打击／护航”会设置任务航线并开启自动交战，仍可暂停后逐单位下令。</li><li><b>02 · 航线与高度</b>右键设置航点，<kbd>Shift</kbd> 追加；也可使用航线按钮与坐标。飞机可选高度，固定翼停止航线后保持盘旋。水面旗舰可编队跟随。</li><li><b>03 · 发射与自动交战</b>先选蓝方单位，再选红方接触。武器行显示无法发射的原因。可启用单机或全队自动交战；蓝方自动交战保留你的航线。区域防空可设置保留弹药，留给来袭导弹。</li><li><b>04 · 返航与防护</b>留意燃油与补给状态，可提前返航装弹。自动防空使用区域导弹、近程导弹、近防与诱饵；数据链用于友军航迹，电子战机可开干扰。</li><li><b>05 · 时间与存档</b><kbd>空格</kbd> 暂停 / 继续，<kbd>Esc</kbd> 取消指令。滚轮缩放，拖动平移，1×–120× 推演。保存至当前浏览器，JSON 可导出迁移；旧版战局自动升级。</li></ol><button class="outline wide" id="mechanics-help" style="margin-top:18px">查看作战机制与平衡</button><p class="help-foot">底部控制台可收放组件，组件顶栏可拖动。原创 2D 策略沙盘，借鉴 <a href="https://store.steampowered.com/app/1286220/" target="_blank" rel="noopener noreferrer">Sea Power</a> 的玩法；提供历史地理任务与虚构演练，装备数值为游戏参数。</p>`);}
+function openHelp(){modal('指挥官操作指南',`<p>历史任务先看简报，开始后执行任务指令；自由沙盘可以自行部署与规划战术。</p><ol class="help-list"><li><b>01 · 部署与侦察</b>在舰队组件点“部署单位”，按水面、水下、航空、岸基筛选。预警机默认开雷达，其他蓝方平台可手动开启；岸基必须放在陆地。历史任务使用固定兵力；“执行拦截／打击／护航”会设置任务航线并开启自动交战，仍可暂停后逐单位下令。</li><li><b>02 · 航线与高度</b>右键设置航点，<kbd>Shift</kbd> 追加；也可使用航线按钮与坐标。飞机可选高度，固定翼停止航线后保持盘旋。水面旗舰可编队跟随。</li><li><b>03 · 发射与自动交战</b>先选蓝方单位，再选红方接触。武器行显示无法发射的原因。可启用单机或全队自动交战；蓝方自动交战保留你的航线。区域防空可设置保留弹药，留给来袭导弹。</li><li><b>04 · 返航与防护</b>留意燃油与补给状态，可提前返航装弹。自动防空使用区域导弹、近程导弹、近防与诱饵；数据链用于友军航迹，电子战机可开干扰。</li><li><b>05 · 3D 海面</b>进入战场默认显示 3D 海面；点击模型或左侧列表查看单位状态、装备和通用模型。左键拖动旋转，右键平移，滚轮缩放；触屏单指旋转、双指缩放。近景观察用于查看外观，战术指令与部署请切换到 2D 战术海图。模型页可下载 GLB 与 Blender 源文件。</li><li><b>06 · 时间与存档</b><kbd>空格</kbd> 暂停 / 继续，<kbd>Esc</kbd> 取消指令。滚轮缩放，拖动平移，1×–120× 推演。保存至当前浏览器，JSON 可导出迁移；旧版战局自动升级。</li></ol><button class="outline wide" id="mechanics-help" style="margin-top:18px">查看作战机制与平衡</button><p class="help-foot">底部控制台可收放组件，组件顶栏可拖动。原创海空策略沙盘，借鉴 <a href="https://store.steampowered.com/app/1286220/" target="_blank" rel="noopener noreferrer">Sea Power</a> 的玩法；提供历史地理任务与虚构演练，装备数值为游戏参数。</p>`);}
 function openLoad(){let saved=false;try{saved=!!localStorage.getItem('seapower-save-v1');}catch{}modal('载入战局',`<p>载入会替换当前战局。载入后默认暂停，点击 ▶ 继续。</p><button class="primary wide" id="load-local" ${saved?'':'disabled'}>${saved?'载入浏览器中的战局':'当前浏览器尚无存档'}</button><button class="outline wide" id="import-trigger" style="margin-top:12px">从 JSON 文件导入</button><p class="tiny" style="margin-top:18px">存档包含编队、弹药、传感器状态、航点及在途武器；不需要账号或服务器。</p>`);}
-function loadText(text){try{state=deserialize(text);autoUI.resetView();fitCamera();resize();selected=state.units.find(u=>u.side==='blue'&&u.hp>0&&!u.exited)?.id;target=null;setMode(null);lastList=lastInspector=lastEvents='';$('#dialog').close();renderUI();if(isAutoBattle(state))setWidgetOpen('autobattle',true);flow.markSession();toast('战局已载入，推演暂停');return true;}catch(e){toast(`无法载入：${e.message}`,true);return false;}}
+function loadText(text){try{state=deserialize(text);seaView?.reset();autoUI.resetView();fitCamera();resize();selected=state.units.find(u=>u.side==='blue'&&u.hp>0&&!u.exited)?.id;target=null;setMode(null);lastList=lastInspector=lastEvents='';$('#dialog').close();renderUI();if(isAutoBattle(state))setWidgetOpen('autobattle',true);flow.markSession();setBattleView('sea');toast('战局已载入，推演暂停');return true;}catch(e){toast(`无法载入：${e.message}`,true);return false;}}
 function exportState(){const blob=new Blob([serialize(state)],{type:'application/json'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=`SeaPower-${state.scenario}-${Math.floor(state.time)}.json`;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);toast('战局已导出');}
 
 function renderUI(){
@@ -135,6 +173,8 @@ function renderInspector(){
 // 事件统一委托，面板随推演更新时不重复绑定监听器。
 document.addEventListener('click',e=>{
   const b=e.target.closest('button');if(!b)return;
+  if(b.id==='view-3d'){setBattleView('sea');return;}
+  if(b.id==='sea-cancel'){setBattleView('map');return;}
   if(b.id==='home'){flow.home();return;}
   if(b.id==='briefing-menu'){flow.currentBrief();return;}
   if(b.id==='auto-battle'||b.id==='auto-battle-mission'){flow.selection('ai');return;}
@@ -251,5 +291,5 @@ function drawUnit(u){const a=toScreen(u),t=TYPES[u.type];ctx.save();ctx.translat
   ctx.save();ctx.rotate(u.heading*Math.PI/180);ctx.strokeStyle=u.side==='red'?'#e8848066':'#8cd3bd66';ctx.beginPath();ctx.moveTo(0,-14);ctx.lineTo(0,-23);ctx.stroke();ctx.restore();ctx.restore();label(u.name,a.x+15,a.y-3,u.side==='red'?'#ce9b95':u.id===selected?'#c4dfd4':'#95b9af',9);label(`${t.code} / ${t.domain==='land'?'FIXED':t.domain==='air'?`${flightName(u)} ${Math.round(u.fuel/(t.endurance*60)*100)}%`:`${Math.round(u.speed)} kn`}`,a.x+15,a.y+10,'#577f80',7);
 }
 function drawRadar(now){const el=$('#radar-mini'),u=unitById(state,selected);if(!el||!u)return;const r=el.getBoundingClientRect(),dpr=Math.min(devicePixelRatio,2);if(r.width<1||r.height<1)return;if(el.width!==Math.round(r.width*dpr)||el.height!==Math.round(r.height*dpr)){el.width=Math.round(r.width*dpr);el.height=Math.round(r.height*dpr);}const c=el.getContext('2d');c.setTransform(dpr,0,0,dpr,0,0);c.clearRect(0,0,r.width,r.height);const cx=r.width/2,cy=r.height/2,R=Math.min(cy-8,45);c.strokeStyle='#36554b';c.lineWidth=.6;for(let i=1;i<=3;i++){c.beginPath();c.arc(cx,cy,R*i/3,0,Math.PI*2);c.stroke();}c.beginPath();c.moveTo(cx-R,cy);c.lineTo(cx+R,cy);c.moveTo(cx,cy-R);c.lineTo(cx,cy+R);c.stroke();if((u.radar||u.sonar)&&u.hp>0){const a=now/1000;c.strokeStyle='#6fbea782';c.beginPath();c.moveTo(cx,cy);c.lineTo(cx+Math.cos(a)*R,cy+Math.sin(a)*R);c.stroke();const range=Math.max(TYPES[u.type].radar,TYPES[u.type].sonar,1);for(const p of visibleContacts(state,isAutoBattle(state)?u.side:'blue')){const d=distance(u,p);if(d>range)continue;c.fillStyle=p.stale?'#785d5b':'#e99a88';c.fillRect(cx+(p.x-u.x)/range*R-1.5,cy+(p.y-u.y)/range*R-1.5,3,3);}}c.fillStyle='#93cfb9';c.fillRect(cx-1,cy-1,2,2);c.font='8px "IBM Plex Mono",monospace';c.fillStyle='#587e75';c.fillText('LOCAL PICTURE',9,14);c.fillText(u.radar?'RADAR ON':u.sonar?'SONAR ON':'EMCON',9,r.height-9);c.fillText(`${visibleContacts(state,isAutoBattle(state)?u.side:'blue').length} CONTACTS`,r.width-74,r.height-9);}
-function frame(now){const dt=Math.min((now-lastFrame)/1000,.2);lastFrame=now;if(!flow.isOpen()){step(state,dt*timeScale);if(now-lastUI>250){renderUI();lastUI=now;}drawMap(now);}requestAnimationFrame(frame);}
+function frame(now){const dt=Math.min((now-lastFrame)/1000,.2);lastFrame=now;if(!flow.isOpen()){if(battleView!=='sea'||seaView)step(state,dt*timeScale);if(now-lastUI>250){renderUI();lastUI=now;}if(battleView==='sea'&&seaView){try{seaView.render(seaSnapshot(state,{side:observerSide(),all:globalObserver()}),{selected,target,speed:timeScale},now,dt);}catch(error){setBattleView('map');seaView.dispose();seaView=null;toast(`3D 显示中断：${error.message}`,true);}}else if(battleView==='map')drawMap(now);}requestAnimationFrame(frame);}
 fitCamera();initializeWidgets();renderUI();resize();flow.home();requestAnimationFrame(frame);

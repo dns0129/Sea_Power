@@ -125,7 +125,7 @@ export function createScenarioFlow({root,getState,onPause,onLaunch,onResume,hasS
     mode=nextMode;choice=nextChoice;selections[mode]=choice;
     draft=mode==='ai'?createAutoBattle(choice):createState(choice);readOnly=false;
   }
-  const header=()=>`<header class="flow-header"><button class="flow-brand" data-flow-action="home" aria-label="返回主页">SEA POWER</button><span class="flow-header-label">${screen==='brief'?'任务简报':'海空战模拟平台'}</span><span class="flow-header-context">${screen==='brief'?`${esc(modeName(draft))} / ${esc(scenarioName(draft))}`:'海空联合战术沙盘'}</span><small class="flow-version">v0.8.2</small>${screen==='home'?'<button data-flow-action="help">操作指南</button>':`<button data-flow-action="${session?'resume':'home'}">${session?'返回战场':'返回主页'} <span aria-hidden="true">×</span></button>`}</header>`;
+  const header=()=>`<header class="flow-header"><button class="flow-brand" data-flow-action="home" aria-label="返回主页">SEA POWER</button><span class="flow-header-label">${screen==='brief'?'任务简报':'海空战模拟平台'}</span><span class="flow-header-context">${screen==='brief'?`${esc(modeName(draft))} / ${esc(scenarioName(draft))}`:'海空联合战术沙盘'}</span><small class="flow-version">v0.9.0</small>${screen==='home'?'<button data-flow-action="help">操作指南</button>':`<button data-flow-action="${session?'resume':'home'}">${session?'返回战场':'返回主页'} <span aria-hidden="true">×</span></button>`}</header>`;
   function home(){
     return homeMenu({session,hasSave:!session&&hasSave()});
   }
@@ -150,7 +150,7 @@ export function createScenarioFlow({root,getState,onPause,onLaunch,onResume,hasS
   function deployment(){
     const units=friendly(draft),showRed=showOpposing(draft);
     const roster=(side,list)=>`<section class="flow-roster"><h2>${esc(factionName(draft,side))}编队 <small>/ ${list.length} 个单位</small></h2><div>${list.map((u,i)=>`<div class="flow-roster-row ${side==='red'?'is-red':''}"><span class="flow-unit-number">${String(i+1).padStart(2,'0')}</span>${icon(TYPES[u.type].domain)}<span><strong>${esc(u.name)}</strong><small>${esc(TYPES[u.type].name)}</small></span></div>`).join('')||'<p class="flow-note">尚无单位，进入海图后部署。</p>'}</div>${!fixed(draft)?`<p class="flow-note">剩余部署点 ${side==='blue'?draft.budget:draft.redBudget}</p>`:'<p class="flow-note">合成编队与抽象航空单位</p>'}</section>`;
-    return `<h1 tabindex="-1">部署情况</h1><p class="flow-subtitle">${fixed(draft)?'固定兵力 · 本任务无需额外部署':readOnly?'当前编队与已知部署':'初始编队 · 可进入海图调整部署与挂载'}</p><div class="flow-split flow-deployment">${chartPanel(true)}<aside class="flow-roster-column">${roster('blue',units)}${showRed?roster('red',draft.units.filter(u=>u.side==='red'&&u.hp>0&&!u.exited)):'<section class="flow-enemy-info"><h2>敌方情报</h2><p>目标动向需进入任务后侦察确认。</p></section>'}${!fixed(draft)&&!readOnly?'<button class="flow-secondary" data-flow-action="deploy">进入海图调整部署 →</button>':''}</aside></div>`;
+    return `<h1 tabindex="-1">部署情况</h1><p class="flow-subtitle">${fixed(draft)?'固定兵力 · 本任务无需额外部署':readOnly?'当前编队与已知部署':'初始编队 · 可进入战场调整部署与挂载'}</p><div class="flow-split flow-deployment">${chartPanel(true)}<aside class="flow-roster-column">${roster('blue',units)}${showRed?roster('red',draft.units.filter(u=>u.side==='red'&&u.hp>0&&!u.exited)):'<section class="flow-enemy-info"><h2>敌方情报</h2><p>目标动向需进入任务后侦察确认。</p></section>'}${!fixed(draft)&&!readOnly?'<button class="flow-secondary" data-flow-action="deploy">进入战场调整部署 →</button>':''}</aside></div>`;
   }
   function objectives(){
     const t=SCENARIOS[draft.scenario];
@@ -158,7 +158,7 @@ export function createScenarioFlow({root,getState,onPause,onLaunch,onResume,hasS
   }
   function briefing(){
     const last=page===3,action=readOnly?'resume':combatReady(draft)?'launch':'deploy';
-    const forward=`<button class="primary" data-flow-action="${last?action:'next'}">${last?readOnly?'返回战场':action==='deploy'?'进入海图部署':isAutoBattle(draft)?'开始 AI 对战':'开始推演':`下一页：${pages[page+1]}`} →</button>`;
+    const forward=`<button class="primary" data-flow-action="${last?action:'next'}">${last?readOnly?'返回战场':action==='deploy'?'进入战场部署':isAutoBattle(draft)?'开始 AI 对战':'开始推演':`下一页：${pages[page+1]}`} →</button>`;
     return `<nav class="flow-tabs" role="tablist" aria-label="剧本简报分页">${pages.map((p,i)=>`<button id="flow-tab-${i}" role="tab" aria-selected="${i===page}" aria-controls="flow-page" tabindex="${i===page?0:-1}" class="${i===page?'is-active':''}" data-flow-page="${i}"><span>${String(i+1).padStart(2,'0')}</span> ${p}</button>`).join('')}</nav><div class="flow-brief-toolbar"><span>${String(page+1).padStart(2,'0')} / 04 · ${pages[page]}</span>${forward}</div><div id="flow-page" class="flow-scroll flow-brief-content" role="tabpanel" aria-labelledby="flow-tab-${page}">${[intro,details,deployment,objectives][page]()}</div><footer class="flow-footer"><button class="flow-secondary" data-flow-action="${page?'previous':readOnly?'resume':'select'}">← ${page?'上一页':readOnly?'返回战场':'返回剧本选择'}</button><span class="flow-page-count">${String(page+1).padStart(2,'0')} / 04</span>${forward}</footer>`;
   }
   function render(focusSelector){

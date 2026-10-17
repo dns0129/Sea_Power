@@ -1,0 +1,70 @@
+{
+  "version": 1,
+  "units": "metres",
+  "forward": "-Z",
+  "up": "+Y",
+  "description": "原创通用示意模型，非具体型号复刻；游戏参数独立于外观。",
+  "source": "generic-fleet.blend",
+  "models": {
+    "carrier": {
+      "name": "通用航空母舰",
+      "file": "generic-carrier.glb",
+      "length": 310,
+      "parts": 89
+    },
+    "destroyer": {
+      "name": "通用驱逐舰",
+      "file": "generic-destroyer.glb",
+      "length": 158,
+      "parts": 127
+    },
+    "frigate": {
+      "name": "通用护卫舰",
+      "file": "generic-frigate.glb",
+      "length": 128,
+      "parts": 119
+    },
+    "supply": {
+      "name": "通用补给舰",
+      "file": "generic-supply.glb",
+      "length": 190,
+      "parts": 109
+    },
+    "submarine": {
+      "name": "通用攻击潜艇",
+      "file": "generic-submarine.glb",
+      "length": 106,
+      "parts": 15
+    },
+    "fighter": {
+      "name": "通用多用途战机",
+      "file": "generic-fighter.glb",
+      "length": 19,
+      "parts": 29
+    },
+    "bomber": {
+      "name": "通用攻击机",
+      "file": "generic-bomber.glb",
+      "length": 39,
+      "parts": 19
+    },
+    "awacs": {
+      "name": "通用预警机",
+      "file": "generic-awacs.glb",
+      "length": 39,
+      "parts": 23
+    },
+    "helicopter": {
+      "name": "通用舰载直升机",
+      "file": "generic-helicopter.glb",
+      "length": 18,
+      "parts": 22
+    },
+    "facility": {
+      "name": "通用岸基设施",
+      "file": "generic-facility.glb",
+      "length": 34,
+      "parts": 14
+    }
+  }
+}

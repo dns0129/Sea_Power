@@ -3,17 +3,20 @@
 <head>
   <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#0c141b">
-  <meta name="description" content="美中双方从 250 公里起始间隔进行 AI 对战模拟、188 个真实现代装备型号、舰载航空与后勤；附三个真实海岸线历史单人任务。">
+  <meta name="description" content="从主页选择海空战模式，进入 3D 海面点击舰船与战机查看细节，切换战术海图指挥；包含通用可编辑模型、188 个现代装备型号与历史单人任务。">
   <title>Sea Power · 海空战模拟平台</title>
   <link rel="icon" href="./favicon.svg" type="image/svg+xml"><link rel="stylesheet" href="./style.css?v=0.7.0">
-  <link rel="stylesheet" href="./scenario-flow.css?v=0.8.2">
+  <link rel="stylesheet" href="./scenario-flow.css?v=0.9.0">
+  <link rel="stylesheet" href="./sea-view.css?v=0.9.0">
   <style>[hidden]{display:none!important}.flow-open>.workspace,.flow-open>.hud-widget,.flow-open>.hud-dock,.flow-open>.mission-strip{display:none!important}</style>
 </head>
 <body class="flow-open">
-  <section id="game-flow" class="game-flow" data-screen="home" aria-label="游戏入口与剧本简报"><header class="flow-header"><span class="flow-brand">SEA POWER</span><span class="flow-header-label">海空战模拟平台</span><span class="flow-header-context">海空联合战术沙盘</span><small class="flow-version">v0.8.2</small><button data-flow-action="help">操作指南</button></header><main class="flow-menu"><div class="flow-menu-heading"><h1 tabindex="-1">海空战模拟平台</h1><p>选择游戏模式</p></div><nav class="flow-mode-grid" aria-label="选择游戏模式"><button type="button" class="flow-entry-card" data-flow-mode="history"><svg class="flow-icon" viewBox="0 0 32 32" aria-hidden="true"><path d="M4 6q6-3 12 0 6-3 12 0v20q-6-3-12 0-6-3-12 0zM16 6v20"/></svg><span class="flow-entry-title">历史任务</span><span class="flow-entry-description">固定兵力 · 明确目标 · 手动指挥</span><span class="flow-entry-next">选择剧本 →</span></button><button type="button" class="flow-entry-card" data-flow-mode="ai"><svg class="flow-icon" viewBox="0 0 32 32" aria-hidden="true"><path d="M16 3v25M5 20l11-11 11 11M11 28l5-4 5 4"/></svg><span class="flow-entry-title">AI 对战</span><span class="flow-entry-description">双方部署 · AI 自主交战 · 观察推演</span><span class="flow-entry-next">选择对战预案 →</span></button><button type="button" class="flow-entry-card" data-flow-mode="sandbox"><svg class="flow-icon" viewBox="0 0 32 32" aria-hidden="true"><path d="M4 4h9v9H4zM19 4h9v9h-9zM4 19h9v9H4zM19 19h9v9h-9z"/></svg><span class="flow-entry-title">自由沙盘</span><span class="flow-entry-description">自由编组 · 装备试验 · 自定节奏</span><span class="flow-entry-next">选择剧本 →</span></button></nav><div class="flow-home-tools"><button class="flow-secondary" data-flow-action="resume" disabled>继续战局</button><button class="flow-secondary" data-flow-action="import">导入存档</button></div></main><noscript>请启用 JavaScript 以选择模式和进入游戏。</noscript></section>
+  <section id="game-flow" class="game-flow" data-screen="home" aria-label="游戏入口与剧本简报"><header class="flow-header"><span class="flow-brand">SEA POWER</span><span class="flow-header-label">海空战模拟平台</span><span class="flow-header-context">海空联合战术沙盘</span><small class="flow-version">v0.9.0</small><button data-flow-action="help">操作指南</button></header><main class="flow-menu"><div class="flow-menu-heading"><h1 tabindex="-1">海空战模拟平台</h1><p>选择游戏模式</p></div><nav class="flow-mode-grid" aria-label="选择游戏模式"><button type="button" class="flow-entry-card" data-flow-mode="history"><svg class="flow-icon" viewBox="0 0 32 32" aria-hidden="true"><path d="M4 6q6-3 12 0 6-3 12 0v20q-6-3-12 0-6-3-12 0zM16 6v20"/></svg><span class="flow-entry-title">历史任务</span><span class="flow-entry-description">固定兵力 · 明确目标 · 手动指挥</span><span class="flow-entry-next">选择剧本 →</span></button><button type="button" class="flow-entry-card" data-flow-mode="ai"><svg class="flow-icon" viewBox="0 0 32 32" aria-hidden="true"><path d="M16 3v25M5 20l11-11 11 11M11 28l5-4 5 4"/></svg><span class="flow-entry-title">AI 对战</span><span class="flow-entry-description">双方部署 · AI 自主交战 · 观察推演</span><span class="flow-entry-next">选择对战预案 →</span></button><button type="button" class="flow-entry-card" data-flow-mode="sandbox"><svg class="flow-icon" viewBox="0 0 32 32" aria-hidden="true"><path d="M4 4h9v9H4zM19 4h9v9h-9zM4 19h9v9H4zM19 19h9v9h-9z"/></svg><span class="flow-entry-title">自由沙盘</span><span class="flow-entry-description">自由编组 · 装备试验 · 自定节奏</span><span class="flow-entry-next">选择剧本 →</span></button></nav><div class="flow-home-tools"><button class="flow-secondary" data-flow-action="resume" disabled>继续战局</button><button class="flow-secondary" data-flow-action="import">导入存档</button></div></main><noscript>请启用 JavaScript 以选择模式和进入游戏。</noscript></section>
   <main class="workspace" hidden inert>
     <section class="map-panel" aria-label="战术海图">
       <canvas id="map" tabindex="0" aria-label="2D 战术海图：点击单位选择，右键海域设置航点；也可使用面板的航线按钮。"></canvas>
+      <section id="sea-view" hidden aria-label="3D 海面与单位观察"></section>
+      <div id="sea-loading" class="sea-loading" hidden role="status"><strong>正在进入 3D 海面</strong><span id="sea-load-progress">准备海面与通用模型…</span><button id="sea-cancel">使用战术海图</button></div>
       <div id="result" class="result hidden"></div>
       <div id="mode-banner" class="mode-banner hidden"></div>
     </section>
@@ -74,8 +77,9 @@
 
   <nav hidden inert class="hud-dock" aria-label="组件控制台"><button id="dock-toggle" aria-label="收起组件控制台" aria-expanded="true" aria-controls="dock-tools">☷</button><div id="dock-tools"><button id="home">主页</button><button id="briefing-menu">简报</button><span class="dock-divider"></span><button id="auto-battle" class="auto-dock-entry">AI 对战</button><button data-widget-toggle="mission">剧本</button><button data-widget-toggle="fleet">舰队</button><button data-widget-toggle="inspector">单位</button><button data-widget-toggle="view">海图</button><button data-widget-toggle="log">记录</button><button data-widget-toggle="time">推演</button><span class="dock-divider"></span><button id="collapse-all">全部收起</button><span class="dock-divider"></span><button id="catalog">装备库</button><button id="save" title="保存到当前浏览器">保存</button><button id="load">载入</button><button id="export" title="导出当前战局 JSON">导出</button><button id="help" aria-label="操作指南">?</button></div></nav>
   <div id="toast" class="toast hidden" role="status"></div>
+  <button id="view-3d" class="sea-map-switch" aria-pressed="false">3D 海面 ↗</button>
   <dialog id="dialog"><div id="dialog-content"></div></dialog>
   <input type="file" id="import-file" accept="application/json,.json" hidden>
-  <script type="module" src="./app.js?v=0.8.2"></script>
+  <script type="module" src="./app.js?v=0.9.0"></script>
 </body>
 </html>
