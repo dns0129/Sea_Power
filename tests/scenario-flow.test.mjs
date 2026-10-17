@@ -1,7 +1,16 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createState,createAutoBattle,SCENARIOS,AUTO_PRESETS,serialize} from '../dist/engine.js?v=0.7.0';
-import {briefingChart,missionGoals,scenarioChoices} from '../dist/scenario-flow.js';
+import {briefingChart,missionGoals,scenarioChoices,homeMenu} from '../dist/scenario-flow.js';
+
+test('首页直接提供三个模式入口，不渲染海图或自动继续战局',()=>{
+  const html=homeMenu();
+  assert.match(html,/选择游戏模式/);
+  for(const mode of ['history','ai','sandbox'])assert.match(html,new RegExp(`data-flow-mode="${mode}"`));
+  assert.doesNotMatch(html,/<canvas|flow-chart|flow-home-map/);
+  assert.match(html,/data-flow-action="resume" disabled/);
+  assert.doesNotMatch(homeMenu({hasSave:true}),/data-flow-action="resume" disabled/);
+});
 
 test('模式选择覆盖现有剧本与 AI 预案，目标遵循各自任务规则',()=>{
   const ids=[...scenarioChoices('history'),...scenarioChoices('sandbox')].map(s=>s.id);

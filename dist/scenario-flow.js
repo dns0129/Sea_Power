@@ -102,24 +102,27 @@ export function briefingChart(s,{deployment=false,compact=false,home=false}={}){
   return `<svg viewBox="0 0 1000 620" fill="#829eaa" class="flow-chart${compact?' flow-chart-mini':''}" role="img" aria-label="${esc(mapName(s))}${deployment?' · 部署情况':''}"${compact?' preserveAspectRatio="xMidYMid slice"':''}>${svg}</svg>`;
 }
 
-export function createScenarioFlow({root,getState,onPause,onLaunch,onResume,hasSave,onImport,onHelp,onError}){
+export function homeMenu({session=false,hasSave=false}={}){
+  return `<main class="flow-menu"><div class="flow-menu-heading"><h1 tabindex="-1">海空战模拟平台</h1><p>选择游戏模式</p></div><nav class="flow-mode-grid" aria-label="选择游戏模式">${modes.map(m=>`<button type="button" class="flow-entry-card" data-flow-mode="${m.id}">${icon(m.symbol)}<span class="flow-entry-title">${m.name}</span><span class="flow-entry-description">${m.description}</span><span class="flow-entry-next">${m.id==='ai'?'选择对战预案':'选择剧本'} →</span></button>`).join('')}</nav><div class="flow-home-tools"><button class="flow-secondary" data-flow-action="resume" ${!session&&!hasSave?'disabled':''}>${session?'返回当前战局':'继续战局'}</button><button class="flow-secondary" data-flow-action="import">导入存档</button></div></main>`;
+}
+
+export function createScenarioFlow({root,getState,onPause,onLaunch,onResume,hasSave,onImport,onHelp,onError,onReveal=()=>{}}){
   let screen='home',page=0,mode='history',choice='bubiyan91',draft=createState(choice),readOnly=false,session=false,opener=null;
   const selections={history:'bubiyan91',ai:'surface',sandbox:'modernlab'};
-  const background=createState('bubiyan91');
   const gameElements=()=>document.querySelectorAll('.workspace,.hud-widget,.hud-dock,.mission-strip');
   function visible(open){
     document.body.classList.toggle('flow-open',open);root.hidden=!open;
-    for(const el of gameElements())el.inert=open;
+    for(const el of gameElements()){el.inert=open;el.hidden=open;}
   }
   function pause(){if(root.hidden)opener=document.activeElement;onPause();visible(true);}
-  function close(){visible(false);(opener?.isConnected&&!opener.closest('#game-flow')?opener:document.querySelector('#map'))?.focus({preventScroll:true});}
+  function close(){visible(false);onReveal();(opener?.isConnected&&!opener.closest('#game-flow')?opener:document.querySelector('#map'))?.focus({preventScroll:true});}
   function select(nextMode,nextChoice=selections[nextMode]){
     mode=nextMode;choice=nextChoice;selections[mode]=choice;
     draft=mode==='ai'?createAutoBattle(choice):createState(choice);readOnly=false;
   }
   const header=()=>`<header class="flow-header"><button class="flow-brand" data-flow-action="home" aria-label="返回主页">SEA POWER</button><span class="flow-header-label">${screen==='brief'?'任务简报':'海空战模拟平台'}</span><span class="flow-header-context">${screen==='brief'?`${esc(modeName(draft))} / ${esc(scenarioName(draft))}`:'海空联合战术沙盘'}</span>${screen==='home'?'<button data-flow-action="help">操作指南</button>':`<button data-flow-action="${session?'resume':'home'}">${session?'返回战场':'返回主页'} <span aria-hidden="true">×</span></button>`}</header>`;
   function home(){
-    return `<div class="flow-home"><div class="flow-home-map" aria-hidden="true">${briefingChart(background,{home:true})}</div><div class="flow-home-copy"><h1 tabindex="-1">海空战模拟平台</h1><p>海空联合战术沙盘</p><div class="flow-home-actions"><button class="primary" data-flow-action="select">开始游戏 <span>→</span></button><button class="flow-secondary" data-flow-action="resume" ${!session&&!hasSave()?'disabled':''}>${session?'返回当前战局':'继续战局'}</button><button class="flow-secondary" data-flow-action="import">导入存档</button></div></div></div><nav class="flow-home-modes" aria-label="游戏模式">${modes.map(m=>`<button data-flow-mode="${m.id}">${icon(m.symbol)}${m.name}</button>`).join('')}</nav>`;
+    return homeMenu({session,hasSave:!session&&hasSave()});
   }
   function selection(){
     return `<div class="flow-scroll flow-select"><div class="flow-page-heading"><p class="flow-breadcrumb">主页 / 开始游戏</p><h1 tabindex="-1">选择模式与剧本</h1><p>先选择模式，再选择剧本。</p></div><div class="flow-select-columns"><section aria-labelledby="flow-modes-label"><h2 id="flow-modes-label"><span class="flow-step">01</span> 选择模式</h2><div class="flow-mode-list">${modes.map(m=>`<button class="flow-mode-card ${mode===m.id?'is-selected':''}" data-flow-mode="${m.id}" aria-pressed="${mode===m.id}">${icon(m.symbol)}<span><strong>${m.name}</strong><small>${m.description}</small></span>${mode===m.id?'<span class="flow-check" aria-hidden="true">✓</span>':''}</button>`).join('')}</div></section><section class="flow-choices" aria-labelledby="flow-choices-label"><h2 id="flow-choices-label"><span class="flow-step">02</span> ${mode==='ai'?'选择预案':'选择剧本'}</h2><div class="flow-choice-list">${scenarioChoices(mode).map(c=>`<button class="flow-choice ${choice===c.id?'is-selected':''}" data-flow-choice="${c.id}" aria-pressed="${choice===c.id}"><span class="flow-choice-mark" aria-hidden="true">${icon(mode==='history'?'book':mode==='ai'?'air':'grid')}</span><span><strong>${esc(c.name)}</strong><small>${esc(c.detail)}</small></span>${choice===c.id?'<span class="flow-check" aria-hidden="true">✓</span>':''}</button>`).join('')}</div><div class="flow-selected-summary">${briefingChart(draft,{compact:true})}<div><small>选中${mode==='ai'?'预案':'剧本'}信息</small><p>${fixed(draft)?'固定兵力':`蓝方可用 ${draft.budget} 部署点`} / ${esc(mapName(draft))}</p></div></div></section></div></div><footer class="flow-footer"><button class="flow-secondary" data-flow-action="home">← 返回主页</button><span></span><button class="primary" data-flow-action="brief">查看战斗简介 →</button></footer>`;

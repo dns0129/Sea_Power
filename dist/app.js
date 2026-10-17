@@ -4,7 +4,7 @@ import {createAutoBattleUI} from './auto-battle-ui.js?v=0.7.0';
 import {createLoadoutEditor,loadoutUsageText} from './loadout-ui.js?v=0.7.0';
 import {geographicMap,geoToWorld,formatGeo} from './geography.js';
 import {missionZone,missionSearch} from './historical-missions.js';
-import {createScenarioFlow} from './scenario-flow.js?v=0.8.0';
+import {createScenarioFlow} from './scenario-flow.js?v=0.8.1';
 
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
 const escape=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -22,6 +22,7 @@ let layers={sensors:true,trails:false,grid:true},lastFrame=performance.now(),las
 const canvas=$('#map'),ctx=canvas.getContext('2d'),camera={x:120,y:85,zoom:1,base:1};let width=0,height=0;
 const flow=createScenarioFlow({root:$('#game-flow'),getState:()=>state,
   onPause:()=>{state.paused=true;setMode(null);$('#dialog').close();},
+  onReveal:()=>{resize();renderUI();},
   onLaunch:next=>{autoUI.resetView();replaceState(next);setWidgetOpen('time',true);setWidgetOpen('mission',isHistorical(state));if(state.phase==='setup')setWidgetOpen('fleet',true);if(isAutoBattle(state))setWidgetOpen('autobattle',true);},
   onResume:()=>{try{return loadText(localStorage.getItem('seapower-save-v1'));}catch{toast('无法访问浏览器存档，请导入 JSON 战局',true);return false;}},
   hasSave:()=>{try{const saved=localStorage.getItem('seapower-save-v1');return !!saved&&!!deserialize(saved);}catch{return false;}},
@@ -189,7 +190,7 @@ document.addEventListener('keydown',e=>{if(flow.isOpen()||e.target.matches('inpu
 
 const scale=()=>camera.base*camera.zoom,toScreen=p=>({x:(p.x-camera.x)*scale()+width/2,y:(p.y-camera.y)*scale()+height/2}),toWorld=(x,y)=>({x:(x-width/2)/scale()+camera.x,y:(y-height/2)/scale()+camera.y});
 function fitCamera(){const w=worldFor(state);camera.zoom=1;camera.x=w.width/2;camera.y=w.height/2;}
-function resize(){const rect=canvas.getBoundingClientRect(),dpr=Math.min(devicePixelRatio,2);width=rect.width;height=rect.height;canvas.width=Math.round(width*dpr);canvas.height=Math.round(height*dpr);ctx.setTransform(dpr,0,0,dpr,0,0);const world=worldFor(state);camera.base=Math.min((width-35)/world.width,(height-58)/world.height);}
+function resize(){const rect=canvas.getBoundingClientRect(),dpr=Math.min(devicePixelRatio,2);width=rect.width;height=rect.height;if(width<1||height<1)return;canvas.width=Math.round(width*dpr);canvas.height=Math.round(height*dpr);ctx.setTransform(dpr,0,0,dpr,0,0);const world=worldFor(state);camera.base=Math.min((width-35)/world.width,(height-58)/world.height);}
 new ResizeObserver(resize).observe(canvas);
 let pointer=null;
 canvas.addEventListener('pointerdown',e=>{if(e.button!==0)return;const r=canvas.getBoundingClientRect();pointer={id:e.pointerId,x:e.clientX-r.left,y:e.clientY-r.top,cx:camera.x,cy:camera.y,moved:false};canvas.setPointerCapture(e.pointerId);});
