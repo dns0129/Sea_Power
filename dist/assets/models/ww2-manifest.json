@@ -1,0 +1,57 @@
+{
+  "version": 1,
+  "units": "metres",
+  "forward": "-Z",
+  "up": "+Y",
+  "source": "ww2-fleet.blend",
+  "models": {
+    "ww2-carrier": {
+      "name": "二战直通甲板航母",
+      "file": "generic-ww2-carrier.glb",
+      "length": 250,
+      "parts": 115
+    },
+    "ww2-cruiser": {
+      "name": "二战重巡洋舰",
+      "file": "generic-ww2-cruiser.glb",
+      "length": 188,
+      "parts": 102
+    },
+    "ww2-destroyer": {
+      "name": "二战驱逐舰",
+      "file": "generic-ww2-destroyer.glb",
+      "length": 119,
+      "parts": 99
+    },
+    "ww2-fighter": {
+      "name": "二战螺旋桨战斗机",
+      "file": "generic-ww2-fighter.glb",
+      "length": 9,
+      "parts": 18
+    },
+    "ww2-dive": {
+      "name": "二战俯冲轰炸机",
+      "file": "generic-ww2-dive.glb",
+      "length": 10.6,
+      "parts": 20
+    },
+    "ww2-torpedo": {
+      "name": "二战鱼雷攻击机",
+      "file": "generic-ww2-torpedo.glb",
+      "length": 12.4,
+      "parts": 21
+    },
+    "ww2-scout": {
+      "name": "二战水上侦察机",
+      "file": "generic-ww2-scout.glb",
+      "length": 21,
+      "parts": 20
+    },
+    "ww2-airfield": {
+      "name": "二战航空基地",
+      "file": "generic-ww2-airfield.glb",
+      "length": 80,
+      "parts": 18
+    }
+  }
+}

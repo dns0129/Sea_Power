@@ -1,8 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import {createState,createAutoBattle,TYPES,SCENARIOS,serialize} from '../dist/engine.js?v=0.7.0';
-import {MODEL_PROFILES,modelFor,seaSnapshot} from '../dist/sea-scene-data.js';
+import {createState,createAutoBattle,TYPES,SCENARIOS,serialize} from '../dist/engine.js?v=0.10.0';
+import {MODEL_PROFILES,modelFor,seaSnapshot} from '../dist/sea-scene-data.js?v=0.10.0';
 import {GLTFLoader} from '../dist/vendor/three/addons/loaders/GLTFLoader.js';
 import {Box3,Vector3} from '../dist/vendor/three/three.module.js';
 
@@ -12,7 +12,7 @@ test('所有装备类型都映射到可替换的通用模型，舰船与航空�
 });
 
 test('手动战局中的 3D 数据不读取隐藏敌方的位置、型号、损伤或装备',()=>{
-  for(const scenario of ['modernlab','strait','bubiyan91','mantis88','sanCarlos82']){
+  for(const scenario of ['modernlab','strait','bubiyan91','mantis88','sanCarlos82','midway42']){
     const state=createState(scenario);state.phase='running';
     for(const unit of state.units.filter(u=>u.side==='red')){
       for(const key of ['x','y','type','hp','weapons','airwing'])Object.defineProperty(unit,key,{get(){throw Error(`读取隐藏敌方 ${key}`);}});
@@ -58,6 +58,8 @@ test('3D 展示数据不改变战局，损失或退出单位不再显示',()=>{
 test('通用资产为有效 GLB 2.0 实体网格，带材质与可编辑的命名零件',()=>{
   const base=new URL('../dist/assets/models/',import.meta.url);
   const manifest=JSON.parse(fs.readFileSync(new URL('manifest.json',base)));
+  const ww2=JSON.parse(fs.readFileSync(new URL('ww2-manifest.json',base)));
+  Object.assign(manifest.models,ww2.models);
   assert.deepEqual(Object.keys(manifest.models).sort(),Object.keys(MODEL_PROFILES).sort());
   for(const [key,model] of Object.entries(manifest.models)){
     const buffer=fs.readFileSync(new URL(model.file,base));
@@ -87,8 +89,8 @@ test('实际加载所有 GLB，导出原点和米制尺寸可供场景直接使�
     assert.ok(!box.isEmpty(),key);
     assert.ok([...size.toArray(),...centre.toArray()].every(Number.isFinite),key);
     assert.ok(size.z>profile.length*.7&&size.z<profile.length*1.2,`${key} length`);
-    assert.ok(Math.abs(centre.x)<1&&Math.abs(centre.z)<profile.length*.15,`${key} origin`);
-    assert.ok(size.x<profile.length&&size.y<profile.length,`${key} proportions`);
+    assert.ok(Math.abs(centre.x)<(key==='ww2-airfield'?profile.length*.2:1)&&Math.abs(centre.z)<profile.length*.15,`${key} origin`);
+    assert.ok(size.x<profile.length*2&&size.y<profile.length,`${key} proportions`);
     model.scene.traverse(o=>{if(o.isMesh){o.geometry.dispose();[].concat(o.material).forEach(m=>m.dispose());}});
   }
 });

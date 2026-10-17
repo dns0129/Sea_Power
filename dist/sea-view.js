@@ -2,12 +2,12 @@ import * as THREE from './vendor/three/three.module.js';
 import {OrbitControls} from './vendor/three/addons/controls/OrbitControls.js';
 import {GLTFLoader} from './vendor/three/addons/loaders/GLTFLoader.js';
 import {mergeGeometries} from './vendor/three/addons/utils/BufferGeometryUtils.js';
-import {MODEL_PROFILES} from './sea-scene-data.js?v=0.9.0';
+import {MODEL_PROFILES} from './sea-scene-data.js?v=0.10.0';
 
 const safe=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const clock=s=>[Math.floor(s/3600),Math.floor(s/60)%60,Math.floor(s)%60].map(n=>String(n).padStart(2,'0')).join(':');
 const domainName={surface:'水面舰艇',sub:'水下单位 · 海面示意',air:'航空单位',land:'岸基单位'};
-const codes={carrier:'CV',destroyer:'DDG',frigate:'FFG',supply:'AOR',submarine:'SSN',fighter:'JET',bomber:'ATK',awacs:'AEW',helicopter:'HEL',facility:'BASE'};
+const codes={carrier:'CV',destroyer:'DDG',frigate:'FFG',supply:'AOR',submarine:'SSN',fighter:'JET',bomber:'ATK',awacs:'AEW',helicopter:'HEL',facility:'BASE','ww2-carrier':'CV','ww2-cruiser':'CA','ww2-destroyer':'DD','ww2-fighter':'FTR','ww2-dive':'DB','ww2-torpedo':'TB','ww2-scout':'SCT','ww2-airfield':'BASE'};
 const asset=key=>new URL(`./assets/models/generic-${key}.glb`,import.meta.url).href;
 
 const skyVertex=`varying vec3 vDirection;void main(){vDirection=position;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}`;
@@ -90,7 +90,7 @@ function prepareModel(source){
     const geometry=(node.geometry.index?node.geometry.toNonIndexed():node.geometry.clone());
     for(const key of Object.keys(geometry.attributes))if(!['position','normal'].includes(key))geometry.deleteAttribute(key);
     if(!geometry.attributes.normal)geometry.computeVertexNormals();
-    if(/MainRotor|RadarSpinner/.test(node.name)){
+    if(/MainRotor|RadarSpinner|Propeller/.test(node.name)){
       const pivot=new THREE.Group();pivot.name=`motion_${node.name}`;
       const pos=new THREE.Vector3().setFromMatrixPosition(node.matrixWorld);
       geometry.applyMatrix4(new THREE.Matrix4().makeTranslation(-pos.x,-pos.y,-pos.z).multiply(node.matrixWorld));
@@ -109,14 +109,15 @@ function prepareModel(source){
   return group;
 }
 
-export async function createSeaView({root,onSelect,onMap,onPlay,onSpeed,onHome,onBrief,onSave,onError,onProgress=()=>{}}){
+export async function createSeaView({root,onSelect,onMap,onPlay,onSpeed,onHome,onBrief,onSave,onError,onMissionOrder=()=>{},onLaunchAircraft=()=>{},onProgress=()=>{}}){
   root.className='sea-view';root.dataset.details='open';
   root.innerHTML=`<canvas tabindex="0" aria-label="3D 海面：点击舰船或飞机查看详情，左键拖动旋转，右键平移，滚轮缩放；触屏单指旋转、双指缩放。"></canvas>
     <div class="sea-labels"></div>
     <header class="sea-topbar"><span class="sea-brand">SEA POWER</span><div class="sea-title"><span>3D 海面</span><small data-sea-title></small></div><nav aria-label="海面视图导航"><button data-sea-action="home">主页</button><button data-sea-action="brief">任务简报</button><button data-sea-action="save">保存</button><button class="sea-map-button" data-sea-action="map">2D 战术海图 ↗</button></nav></header>
     <span class="sea-environment"></span>
     <button class="sea-roster-toggle sea-panel" data-sea-action="roster">编队列表 ☰</button>
-    <aside class="sea-roster sea-panel" aria-label="3D 单位列表"><div class="sea-panel-heading"><span>海空编队</span><small data-sea-observer></small></div><div class="sea-roster-tabs"><button class="active" data-sea-list="fleet">单位</button><button data-sea-list="contacts">接触</button></div><div class="sea-roster-list"></div><div class="sea-roster-note">点击单位，拉近观察并查看详情。<br>敌方位置遵循当前视角的侦察情报。</div></aside>
+    <aside class="sea-roster sea-panel" aria-label="3D 单位列表"><div class="sea-panel-heading"><span>海空编队</span><small data-sea-observer></small></div><div class="sea-ww2-task" hidden></div><div class="sea-roster-tabs"><button class="active" data-sea-list="fleet">单位</button><button data-sea-list="contacts">接触</button></div><div class="sea-roster-list"></div><div class="sea-roster-note">点击单位，拉近观察并查看详情。<br>敌方位置遵循当前视角的侦察情报。</div></aside>
+    <button class="sea-ww2-mobile sea-panel" data-sea-order="plan" hidden>执行作战计划 ↗</button>
     <aside class="sea-details sea-panel" aria-label="选中单位详情"><div class="sea-details-head"></div><div class="sea-detail-tabs"><button class="active" data-sea-tab="status">状态</button><button data-sea-tab="equipment">装备</button><button data-sea-tab="model">模型</button></div><div class="sea-detail-content"></div><div class="sea-detail-foot"><button data-sea-action="closeup">近景观察</button><button data-sea-action="map">在海图中控制 →</button></div></aside>
     <button class="sea-show-details sea-panel" data-sea-action="details">单位详情 ↙</button>
     <div class="sea-gesture-hint">左键旋转 · 右键平移 · 滚轮缩放<span>通用示意模型 · 单位外观与高度采用显示比例</span></div>
@@ -163,6 +164,10 @@ export async function createSeaView({root,onSelect,onMap,onPlay,onSpeed,onHome,o
     }));
   }catch(error){renderer.dispose();environment.dispose();throw Error(`通用模型加载失败：${error.message}`);}
   const actors=new Map(),labels=new Map(),raycaster=new THREE.Raycaster(),pointer=new THREE.Vector2();
+  const rounds=new Map(),splashes=new Map();
+  const tracerGeometry=new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0,0,.13),new THREE.Vector3(0,0,-.13)]);
+  const tracerMaterials={blue:new THREE.LineBasicMaterial({color:'#ffe4a3'}),red:new THREE.LineBasicMaterial({color:'#efb19b'})};
+  const splashGeometry=new THREE.RingGeometry(.04,.12,18),splashMaterials={hit:new THREE.MeshBasicMaterial({color:'#ffbd77',transparent:true,opacity:.8,side:THREE.DoubleSide,depthWrite:false}),miss:new THREE.MeshBasicMaterial({color:'#d1e5e8',transparent:true,opacity:.65,side:THREE.DoubleSide,depthWrite:false})};
   const ringMaterial=new THREE.MeshBasicMaterial({color:'#a3e3ca',transparent:true,opacity:.65,side:THREE.DoubleSide,depthWrite:false});
   const ring=new THREE.Mesh(new THREE.RingGeometry(1,1.013,100),ringMaterial);ring.rotation.x=-Math.PI/2;scene.add(ring);
   const selectionLine=new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(),new THREE.Vector3(0,1,0)]),new THREE.LineDashedMaterial({color:'#a3e3ca',dashSize:.13,gapSize:.09,transparent:true,opacity:.5}));selectionLine.computeLineDistances();scene.add(selectionLine);
@@ -188,7 +193,7 @@ export async function createSeaView({root,onSelect,onMap,onPlay,onSpeed,onHome,o
   function flyTo(position,target){fly={position,target,start:performance.now(),fromPosition:camera.position.clone(),fromTarget:controls.target.clone()};}
   function focus(id,close=false){
     const item=allItems().find(u=>u.id===id);if(!item)return;
-    const size=item.contact?2:MODEL_PROFILES[item.model].size;
+    const size=item.model?MODEL_PROFILES[item.model].size:2;
     const target=itemPoint(item).add(new THREE.Vector3(0,size*.06,0));
     const distance=(close?size*1.75:Math.max(size*2.55,7))/Math.min(1,Math.sqrt(camera.aspect/.9));
     const offset=new THREE.Vector3(1,.47,1.25).normalize().multiplyScalar(distance);
@@ -214,6 +219,8 @@ export async function createSeaView({root,onSelect,onMap,onPlay,onSpeed,onHome,o
     const button=event.target.closest('button');if(!button)return;
     event.stopPropagation();
     if(button.dataset.seaUnit){select(button.dataset.seaUnit);return;}
+    if(button.dataset.seaOrder){onMissionOrder(button.dataset.seaOrder);lastPanel=0;return;}
+    if(button.dataset.seaLaunch){onLaunchAircraft(button.dataset.seaBase,button.dataset.seaLaunch);lastBody='';return;}
     if(button.dataset.seaTab){detailTab=button.dataset.seaTab;lastBody='';updatePanels();return;}
     if(button.dataset.seaList){listTab=button.dataset.seaList;lastRoster='';updatePanels();return;}
     const action=button.dataset.seaAction;
@@ -257,13 +264,13 @@ export async function createSeaView({root,onSelect,onMap,onPlay,onSpeed,onHome,o
   function createActor(item){
     const group=new THREE.Group(),body=new THREE.Group();group.add(body);body.userData.unitId=item.id;
     let wake=null,animations=[];
-    if(item.contact){
+    if(item.contact&&!item.model){
       const mesh=new THREE.Mesh(new THREE.OctahedronGeometry(.65),new THREE.MeshBasicMaterial({color:'#e7a29a',wireframe:true,transparent:true,opacity:.8}));body.add(mesh);
     }else{
       const model=library.get(item.model).clone(true);const profile=MODEL_PROFILES[item.model];
       model.scale.setScalar(profile.size/profile.length);body.add(model);
       model.traverse(o=>{if(o.name.startsWith('motion_'))animations.push(o);});
-      if(item.domain==='surface'){
+      if(!item.contact&&item.domain==='surface'){
         const mat=new THREE.ShaderMaterial({vertexShader:wakeVertex,fragmentShader:wakeFragment,
           uniforms:{time:{value:0},strength:{value:.5}},transparent:true,depthWrite:false,side:THREE.DoubleSide});
         wake=new THREE.Mesh(new THREE.PlaneGeometry(profile.size*.62,profile.size*1.25),mat);
@@ -273,14 +280,33 @@ export async function createSeaView({root,onSelect,onMap,onPlay,onSpeed,onHome,o
     scene.add(group);
     const label=document.createElement('button');label.className='sea-marker';label.dataset.seaUnit=item.id;
     $('.sea-labels').append(label);labels.set(item.id,label);
-    const actor={group,body,wake,animations,model:item.model,contact:item.contact,label};actors.set(item.id,actor);return actor;
+    const actor={group,body,wake,animations,model:item.model,contact:item.contact,marker:item.contact&&!item.model,label};actors.set(item.id,actor);return actor;
   }
   function removeActor(id){
     const a=actors.get(id);if(!a)return;
     scene.remove(a.group);a.label.remove();labels.delete(id);
     if(a.wake){a.wake.geometry.dispose();a.wake.material.dispose();}
-    if(a.contact)a.body.traverse(o=>{if(o.isMesh){o.geometry.dispose();o.material.dispose();}});
+    if(a.marker)a.body.traverse(o=>{if(o.isMesh){o.geometry.dispose();o.material.dispose();}});
     actors.delete(id);
+  }
+  function updateBattleEffects(){
+    const live=new Set();
+    for(const p of snapshot.projectiles||[]){
+      live.add(p.id);let line=rounds.get(p.id);
+      if(!line){line=new THREE.Line(tracerGeometry,tracerMaterials[p.side]);scene.add(line);rounds.set(p.id,line);}
+      const height=p.weapon==='bomb'?.12+(1-p.progress)*Math.max(.4,p.height):p.weapon==='gun'?.15+Math.sin(p.progress*Math.PI)*.4:p.weapon==='torpedo'?.08:Math.max(.2,p.height);
+      line.position.set(p.x,height,p.y);line.rotation.y=-p.heading*Math.PI/180;
+      line.scale.z=p.weapon==='torpedo'?.6:1;
+    }
+    for(const [id,line] of rounds)if(!live.has(id)){scene.remove(line);rounds.delete(id);}
+    const visible=new Set();
+    for(const e of snapshot.effects||[]){
+      const id=`${e.time}:${e.x}:${e.y}`,age=snapshot.time-e.time;if(age>12)continue;
+      visible.add(id);let splash=splashes.get(id);
+      if(!splash){splash=new THREE.Mesh(splashGeometry,splashMaterials[e.kind==='hit'?'hit':'miss']);splash.rotation.x=-Math.PI/2;scene.add(splash);splashes.set(id,splash);}
+      splash.position.set(e.x,.13,e.y);splash.scale.setScalar(1+age*.13);
+    }
+    for(const [id,mesh] of splashes)if(!visible.has(id)){scene.remove(mesh);splashes.delete(id);}
   }
   function updateActors(now){
     const items=allItems(),live=new Set(items.map(u=>u.id));
@@ -294,15 +320,15 @@ export async function createSeaView({root,onSelect,onMap,onPlay,onSpeed,onHome,o
         const bob=item.domain==='surface'?.025: item.inAir?.018:0;
         a.body.position.y=Math.sin(now*.0008+Number(item.id.slice(1)))*bob;
         a.body.rotation.z=item.domain==='surface'?Math.sin(now*.00065+item.x)*.006:0;
-        a.animations.forEach(p=>p.rotation.y=now*(p.name.includes('MainRotor')?.018:.00045));
+        a.animations.forEach(p=>{if(p.name.includes('Propeller'))p.rotation.z=now*.028;else p.rotation.y=now*(p.name.includes('MainRotor')?.018:.00045);});
         if(a.wake){a.wake.visible=item.speed>1;a.wake.material.uniforms.time.value=now/1000;a.wake.material.uniforms.strength.value=Math.min(.75,item.speed/40);}
-      }else a.body.rotation.y=now*.0002;
+      }else if(!item.model)a.body.rotation.y=now*.0002;
       a.label.classList.toggle('red',item.side==='red');a.label.classList.toggle('contact',item.contact);a.label.classList.toggle('active',item.id===selectedKey);
       const labelText=`${item.name}|${item.contact?item.stale?'最后已知位置':item.source:item.typeName}`;
       if(a.label.dataset.copy!==labelText){a.label.dataset.copy=labelText;a.label.innerHTML=`<strong>${safe(item.name)}</strong><small>${safe(item.contact?item.stale?'最后已知位置':item.source:item.typeName)}</small>`;a.label.setAttribute('aria-label',`查看${item.name}详情`);}
     }
     const item=selectedItem();ring.visible=!!item;selectionLine.visible=!!item&&item.height>0;
-    if(item){const size=item.contact?1.6:MODEL_PROFILES[item.model].size;ring.position.set(item.x,.075,item.y);ring.scale.setScalar(size*.65);ringMaterial.color.set(item.side==='red'?'#e9a29a':'#a3e3ca');selectionLine.position.set(item.x,.08,item.y);selectionLine.scale.y=item.height;}
+    if(item){const size=item.model?MODEL_PROFILES[item.model].size:1.6;ring.position.set(item.x,.075,item.y);ring.scale.setScalar(size*.65);ringMaterial.color.set(item.side==='red'?'#e9a29a':'#a3e3ca');selectionLine.position.set(item.x,.08,item.y);selectionLine.scale.y=item.height;}
   }
   const projected=new THREE.Vector3();
   function projectLabels(){
@@ -324,21 +350,29 @@ export async function createSeaView({root,onSelect,onMap,onPlay,onSpeed,onHome,o
     let rows=stat('航速',Math.round(u.speed),'kn')+stat('航向',Math.round(u.heading),'°');
     if(u.domain==='air')rows+=stat('高度',u.altitude.toLocaleString(),'m')+stat('燃油',Math.round(u.fuel),'%');
     else rows+=stat('海图 X',u.x.toFixed(1),'nm')+stat('海图 Y',u.y.toFixed(1),'nm');
-    return `<div class="sea-health-heading"><span>结构完整度</span><b>${Math.round(u.hp/u.maxHp*100)}%</b></div><div class="sea-health-track"><i style="width:${Math.max(0,Math.min(100,u.hp/u.maxHp*100))}%"></i></div><dl class="sea-stats">${rows}</dl><div class="sea-sensors">${[['radar','雷达'],['sonar','声呐'],['esm','电子支援'],['datalink','数据链']].map(([key,label])=>`<span class="${u[key]?'on':''}">${label} ${u[key]?'开':'关'}</span>`).join('')}</div>${u.domain==='sub'?`<p>潜航状态：${u.depth==='periscope'?'潜望深度':'深潜'} · 模型在海面作位置示意</p>`:''}${u.domain==='air'?`<p>飞行状态：${u.inAir?u.altitudeName:u.flightState==='servicing'?'整备中':'停场'}</p>`:''}<p>${safe(u.description)}</p>`;
+    const sensors=u.ww2?[['radar','早期雷达'],['datalink','无线电']]:[['radar','雷达'],['sonar','声呐'],['esm','电子支援'],['datalink','数据链']];
+    return `<div class="sea-health-heading"><span>结构完整度</span><b>${Math.round(u.hp/u.maxHp*100)}%</b></div><div class="sea-health-track"><i style="width:${Math.max(0,Math.min(100,u.hp/u.maxHp*100))}%"></i></div><dl class="sea-stats">${rows}</dl><div class="sea-sensors">${sensors.map(([key,label])=>`<span class="${u[key]?'on':''}">${label} ${u[key]?'开':'关'}</span>`).join('')}${u.ww2?'<span class="on">目视搜索</span>':''}</div>${u.domain==='sub'?`<p>潜航状态：${u.depth==='periscope'?'潜望深度':'深潜'} · 模型在海面作位置示意</p>`:''}${u.domain==='air'?`<p>飞行状态：${u.inAir?u.altitudeName:u.flightState==='servicing'?'整备中':'停场'}</p>`:''}<p>${safe(u.description)}</p>`;
   }
   function equipmentBody(u){
     if(u.contact)return '<p>尚未获得该接触的装备情报。</p>';
-    return `<h3>当前武器与余量</h3>${u.weapons.length?u.weapons.map(w=>`<div class="sea-weapon"><span>${safe(w.name)}</span><b>${w.count}</b></div>`).join(''):'<p>当前无可用武器。</p>'}${u.airwing.length?`<h3>待出动舰载机</h3>${u.airwing.map(w=>`<div class="sea-weapon"><span>${safe(w.name)}</span><b>${w.count}</b></div>`).join('')}`:''}<p>装备与弹药读取当前战局；通用模型的外观挂载仅作示意。使用战术海图进行挂载、起飞与作战操作。</p>`;
+    return `<h3>当前武器与余量</h3>${u.weapons.length?u.weapons.map(w=>`<div class="sea-weapon"><span>${safe(w.name)}</span><b>${w.count}</b></div>`).join(''):'<p>当前无可用武器。</p>'}${u.airwing.length?`<h3>${u.ww2?'待出动航空小队':'待出动舰载机'}</h3>${u.airwing.map(w=>`<div class="sea-weapon"><span>${safe(w.name)}</span><b>${w.count}</b>${u.ww2&&u.side==='blue'?`<button class="sea-launch" data-sea-launch="${safe(w.id)}" data-sea-base="${safe(u.id)}" ${snapshot.phase!=='running'||u.hp<u.maxHp*.4||u.deckReady>snapshot.time?'disabled':''}>放飞</button>`:''}</div>`).join('')}`:''}${u.ww2&&u.deck?`<p>${u.deckReady>snapshot.time?`甲板准备 ${Math.ceil(u.deckReady-snapshot.time)} 秒`:'可放飞'} · 航空补给 ${Math.floor(u.supply)} 点</p>`:''}<p>${u.ww2?'每个航空单位代表缩编小队。攻击批次与外观挂载均为玩法抽象；回收后十分钟整备。':'装备与弹药读取当前战局；通用模型的外观挂载仅作示意。使用战术海图进行挂载、起飞与作战操作。'}</p>`;
   }
   function modelBody(u){
     if(u.contact)return '<p>接触使用情报标记，确认前不显示具体舰船或战机模型。</p>';
     const p=MODEL_PROFILES[u.model];
-    return `<div class="sea-model-badge">${safe(p.name)}<br><small>原创通用原型 · 可继续修改</small></div><p>当前外观用于同类单位的海面展示。模型原型长约 ${p.length} 米；为方便观察，舰船、飞机与高度采用显示比例。</p><div class="sea-downloads"><a href="${asset(u.model)}" download>下载当前 3D 模型 <small>GLB ↓</small></a><a href="./assets/models/generic-fleet.blend" download>下载整套可编辑源文件 <small>BLEND ↓</small></a></div><p>源文件中舰体、舰桥、雷达、甲板与机翼等部件分别命名，可在 Blender 中继续建模。</p>`;
+    return `<div class="sea-model-badge">${safe(p.name)}<br><small>原创通用原型 · 可继续修改</small></div><p>当前外观用于同类单位的海面展示。模型原型长约 ${p.length} 米；为方便观察，舰船、飞机与高度采用显示比例。</p><div class="sea-downloads"><a href="${asset(u.model)}" download>下载当前 3D 模型 <small>GLB ↓</small></a><a href="./assets/models/${p.source||'generic-fleet.blend'}" download>下载整套可编辑源文件 <small>BLEND ↓</small></a></div><p>源文件中的零件分别命名，可在 Blender 中继续建模。</p>`;
   }
   function updatePanels(speed){
     if(!snapshot)return;
     $('[data-sea-title]').textContent=snapshot.title;
     $('[data-sea-observer]').textContent=snapshot.observer;
+    root.classList.toggle('ww2-view',snapshot.ww2);$('.sea-ww2-task').hidden=!snapshot.ww2;
+    $('.sea-ww2-mobile').hidden=!snapshot.ww2;
+    if(snapshot.ww2){
+      const task=snapshot.task,host=$('.sea-ww2-task'),signature=JSON.stringify([task,snapshot.phase]);
+      if(host.dataset.signature!==signature){host.dataset.signature=signature;host.innerHTML=`<strong>中途岛 · 1942</strong><p>${safe(task.stage)}</p><small>敌航母失能 ${task.disabled}/3 · 本方航母 ${task.carriers}<br>中途岛完整度 ${task.base}%</small><button class="sea-plan" data-sea-order="${task.plan?'manual':'plan'}" ${snapshot.phase!=='running'?'disabled':''}>${task.plan?'转为手动指挥':'执行航空作战计划 →'}</button><div class="sea-task-actions"><button data-sea-order="search">搜索</button><button data-sea-order="cap">防空</button><button data-sea-order="strike">攻击波</button></div>`;}
+      $('.sea-ww2-mobile').dataset.seaOrder=task.plan?'manual':'plan';$('.sea-ww2-mobile').textContent=task.plan?'作战计划执行中':'执行作战计划 ↗';
+    }
     $('.sea-environment').textContent=`${snapshot.weather==='storm'?'风暴 · 6 级海况':'晴朗 · 2 级海况'} / 通用模型`;
     const rosterSignature=JSON.stringify([listTab,selectedKey,snapshot.units.map(u=>[u.id,u.name,u.typeName,u.side]),snapshot.contacts.map(u=>[u.id,u.name,u.stale])]);
     if(rosterSignature!==lastRoster){
@@ -355,7 +389,7 @@ export async function createSeaView({root,onSelect,onMap,onPlay,onSpeed,onHome,o
       $('.sea-details-head').innerHTML=`<button class="sea-close" data-sea-action="close-details" aria-label="收起单位详情">×</button>${u?`<small>${u.contact?'侦察接触':`${u.side==='blue'?'蓝方':'红方'} / ${domainName[u.domain]}`}</small><h2>${safe(u.name)}</h2><p>${safe(u.contact?'未确认单位':u.typeName)}</p>`:'<h2>海面观察</h2><p>点击舰船或战机查看详情</p>'}`;
       root.dataset.selection=u?.id||'';
     }
-    const bodySignature=JSON.stringify([detailTab,u&&(detailTab==='model'?[u.id,u.model]:detailTab==='equipment'?[u.id,u.weapons,u.airwing]:[u.id,u.hp,Math.round(u.speed),Math.round(u.heading),Math.round(u.fuel),u.altitude,u.radar,u.sonar,u.esm,u.datalink,u.flightState,u.depth,Math.floor(u.x*10),Math.floor(u.y*10),u.stale,Math.floor(u.age)])]);
+    const bodySignature=JSON.stringify([detailTab,u&&(detailTab==='model'?[u.id,u.model]:detailTab==='equipment'?[u.id,u.weapons,u.airwing,u.ww2?Math.ceil(Math.max(0,u.deckReady-snapshot.time)):0,snapshot.phase]:[u.id,u.hp,Math.round(u.speed),Math.round(u.heading),Math.round(u.fuel),u.altitude,u.radar,u.sonar,u.esm,u.datalink,u.flightState,u.depth,Math.floor(u.x*10),Math.floor(u.y*10),u.stale,Math.floor(u.age)])]);
     if(lastBody!==bodySignature){lastBody=bodySignature;$('.sea-detail-content').innerHTML=u?(detailTab==='status'?statusBody(u):detailTab==='equipment'?equipmentBody(u):modelBody(u)):'<p>使用左侧编队列表定位单位，或在海面直接点击模型。</p>';}
     root.querySelectorAll('[data-sea-tab]').forEach(b=>b.classList.toggle('active',b.dataset.seaTab===detailTab));
     $('.sea-clock-block time').textContent=clock(snapshot.time);
@@ -371,7 +405,7 @@ export async function createSeaView({root,onSelect,onMap,onPlay,onSpeed,onHome,o
     const visible=allItems(),nextKey=visible.find(u=>u.id===requested)?.id||visible.find(u=>u.side===snapshot.side)?.id||visible[0]?.id||null;
     if(selectedKey!==nextKey){selectedKey=nextKey;lastHead=lastBody=lastRoster='';if(selectedKey)focus(selectedKey);}
     if(firstFrame){firstFrame=false;if(selectedKey)focus(selectedKey);else{controls.target.set(snapshot.world.width/2,0,snapshot.world.height/2);camera.position.copy(controls.target).add(new THREE.Vector3(35,28,35));}}
-    updateActors(now);
+    updateActors(now);updateBattleEffects();
     const item=selectedItem();
     if(follow&&item){
       const p=itemPoint(item);
@@ -391,13 +425,14 @@ export async function createSeaView({root,onSelect,onMap,onPlay,onSpeed,onHome,o
     renderer.render(scene,camera);projectLabels();root.dataset.ready='true';
   }
   function setActive(value){active=value;if(active){resize();lastPanel=0;canvas.focus({preventScroll:true});}}
-  function reset(){selectedKey=null;previousLand=null;lastHead=lastBody=lastRoster='';firstFrame=true;lastFollow=null;fly=null;root.dataset.details='open';for(const id of actors.keys())removeActor(id);}
+  function reset(){selectedKey=null;previousLand=null;lastHead=lastBody=lastRoster='';firstFrame=true;lastFollow=null;fly=null;root.dataset.details='open';for(const id of actors.keys())removeActor(id);for(const o of [...rounds.values(),...splashes.values()])scene.remove(o);rounds.clear();splashes.clear();}
   function dispose(){
     if(disposed)return;disposed=true;handlers.abort();resizeObserver.disconnect();controls.dispose();
     for(const id of actors.keys())removeActor(id);
     const geometries=new Set(),materials=new Set();
     const collect=o=>{if(o.geometry)geometries.add(o.geometry);if(o.material)for(const m of [].concat(o.material))materials.add(m);};
     scene.traverse(collect);library.forEach(g=>g.traverse(collect));geometries.forEach(g=>g.dispose());materials.forEach(m=>m.dispose());
+    tracerGeometry.dispose();splashGeometry.dispose();Object.values(tracerMaterials).forEach(m=>m.dispose());Object.values(splashMaterials).forEach(m=>m.dispose());
     environment.dispose();renderer.dispose();root.innerHTML='';
   }
   return {render,resize,setActive,reset,focus,overview,dispose};

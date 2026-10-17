@@ -1,4 +1,6 @@
-import {REAL_MAPS,geoToWorld} from './geography.js';
+import {isWW2Scenario} from './ww2-data.js?v=0.10.0';
+import {initializeWW2,ww2Order,ww2Objectives,updateWW2,ww2Zone,ww2Search} from './ww2-missions.js?v=0.10.0';
+import {REAL_MAPS,geoToWorld} from './geography.js?v=0.10.0';
 export const HISTORICAL_SCENARIOS={
   bubiyan91:{name:'布比延封锁线',subtitle:'1991 · 海湾战争 · 拦截撤退',mapId:'bubiyan',budget:0,historical:true,date:'1991-01-29—31',duration:1800,difficulty:'入门',
     brief:'指挥舰载直升机与攻击机，在东侧脱离线之前击沉至少 3 艘撤退舰艇；最多允许 1 艘脱离。点击“执行拦截”让航空队进入搜索区，海上兵力负责掩护。任务限时 30 分钟。',
@@ -49,9 +51,10 @@ export const HISTORICAL_SCENARIOS={
       {id:'wave3',time:900,count:2,type:'lightAttack1982',positions:[[-58.58,-51.24],[-58.60,-51.30]],destination:[-59.065,-51.505],message:'第三波攻击机从东北方向进入，守住最后卸载窗口。'},
     ]},
 };
-export function missionZone(s){const spec=HISTORICAL_SCENARIOS[s.scenario];if(!spec)return null;return {...geoToWorld(REAL_MAPS[spec.mapId],spec.zone.lon,spec.zone.lat),radius:spec.zone.radius,name:spec.zone.name};}
-export function missionSearch(s){const spec=HISTORICAL_SCENARIOS[s.scenario];return spec?geoToWorld(REAL_MAPS[spec.mapId],...spec.search):null;}
+export function missionZone(s){if(isWW2Scenario(s))return ww2Zone(s);const spec=HISTORICAL_SCENARIOS[s.scenario];if(!spec)return null;return {...geoToWorld(REAL_MAPS[spec.mapId],spec.zone.lon,spec.zone.lat),radius:spec.zone.radius,name:spec.zone.name};}
+export function missionSearch(s){if(isWW2Scenario(s))return ww2Search(s);const spec=HISTORICAL_SCENARIOS[s.scenario];return spec?geoToWorld(REAL_MAPS[spec.mapId],...spec.search):null;}
 export function initializeHistorical(s,api){
+  if(isWW2Scenario(s))return initializeWW2(s,api);
   const spec=HISTORICAL_SCENARIOS[s.scenario];if(!spec)return;
   s.budget=s.redBudget=0;s.mapId=spec.mapId;
   s.mission={id:s.scenario,escaped:[],secured:[],waves:[],orders:[],disabled:false,unload:0,reason:'',score:0};
@@ -67,6 +70,7 @@ export function initializeHistorical(s,api){
   api.log(s,'历史任务已载入。查看目标与历史说明后开始；可随时暂停下令。');
 }
 export function historicalOrder(s,key,api){
+  if(isWW2Scenario(s))return ww2Order(s,key,api);
   const spec=HISTORICAL_SCENARIOS[s.scenario];if(!spec||s.phase!=='running')return {ok:false,error:'请先开始历史任务'};
   if(![spec.orderKey,'withdraw'].includes(key)||key==='withdraw'&&(s.scenario!=='mantis88'||!s.mission.disabled))return {ok:false,error:'当前阶段无法执行该指令'};
   const goal=key==='withdraw'?missionZone(s):missionSearch(s);let count=0,escortIndex=0;
@@ -79,6 +83,7 @@ export function historicalOrder(s,key,api){
   s.mission.orders.push(key);api.log(s,key==='withdraw'?'水面指挥舰执行撤离，航空队继续掩护。':`${spec.order}指令已下达，${count} 个单位进入任务位置。`);return {ok:true};
 }
 export function historicalObjectives(s){
+  if(isWW2Scenario(s))return ww2Objectives(s);
   if(!s.mission)return [];
   const m=s.mission,zone=missionZone(s),dist=u=>Math.hypot(u.x-zone.x,u.y-zone.y);
   if(s.scenario==='bubiyan91'){const sunk=s.units.filter(u=>u.missionRole==='escape'&&u.hp<=0).length;return [{text:`击沉撤退舰艇 ${sunk} / 3`,done:sunk>=3},{text:`脱离舰艇 ${m.escaped.length} / 最多 1`,failed:m.escaped.length>=2,done:s.phase==='ended'&&s.result==='victory'}];}
@@ -87,6 +92,7 @@ export function historicalObjectives(s){
   return [{text:`运输船抵达锚地 ${inside} / 2`,done:inside===2},{text:`连续卸载 ${Math.floor(m.unload)} / 120 秒`,done:m.unload>=120},{text:`空袭已进入 ${m.waves.length} / 3 波`,done:m.waves.length===3}];
 }
 export function updateHistorical(s,dt,api){
+  if(isWW2Scenario(s))return updateWW2(s,dt,api);
   const spec=HISTORICAL_SCENARIOS[s.scenario];if(!spec||s.phase!=='running')return;
   const m=s.mission,zone=missionZone(s),inside=u=>Math.hypot(u.x-zone.x,u.y-zone.y)<=zone.radius;
   for(const wave of spec.waves||[])if(s.time>=wave.time&&!m.waves.includes(wave.id)){

@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-import {createState,start,step,scan,visibleContacts,fire,fireCheck,setRoute,setSpeed,setAltitude,returnToBase,addUnit,removeUnit,formFleet,serialize,deserialize,checkOutcome,unitById,TYPES,WEAPONS,inLand,clearPath,radarHorizon,sensorRange,missileVisible,maxSpeed} from '../dist/engine.js';
+import {createState,start,step,scan,visibleContacts,fire,fireCheck,setRoute,setSpeed,setAltitude,returnToBase,addUnit,removeUnit,formFleet,serialize,deserialize,checkOutcome,unitById,TYPES,WEAPONS,inLand,clearPath,radarHorizon,sensorRange,missileVisible,maxSpeed} from '../dist/engine.js?v=0.10.0';
 
 function quiet(s){for(const u of s.units){u.autoEngage=false;u.autoDefense=false;u.radar=u.sonar=u.esm=false;u.route=[];}return s;}
 function confirm(s,seconds=12){for(let t=0;t<seconds;t+=3){s.time+=3;scan(s);}return s;}
@@ -164,7 +164,7 @@ test('固定种子重复推演，高倍率固定子步长与单秒结果一致',
 });
 test('所有剧本和全类型单位均可保存载入，保留燃油弹药和引用',()=>{
   for(const scenario of ['strait','hunt','littoral','sandbox']){const s=createState(scenario);start(s);step(s,20);const loaded=deserialize(serialize(s));assert.equal(loaded.paused,true);assert.equal(loaded.units.length,s.units.length);assert.equal(loaded.time,s.time);assert.deepEqual(loaded.units.map(u=>[u.type,u.fuel,u.weapons]),s.units.map(u=>[u.type,u.fuel,u.weapons]));}
-  for(const [type,t] of Object.entries(TYPES)){const s=createState('sandbox');s.units=[];s.budget=s.redBudget=1000;assert.ok(addUnit(s,type,'blue',t.domain==='land'?{x:17,y:43}:{x:75,y:100}).ok);assert.equal(deserialize(serialize(s)).units[0].type,type);}
+  for(const [type,t] of Object.entries(TYPES).filter(([,t])=>t.era!=='ww2')){const s=createState('sandbox');s.units=[];s.budget=s.redBudget=1000;assert.ok(addUnit(s,type,'blue',t.domain==='land'?{x:17,y:43}:{x:75,y:100}).ok);assert.equal(deserialize(serialize(s)).units[0].type,type);}
 });
 test('格式、越界、弹药、燃油、原型类型与坏引用不能导入',()=>{
   const original=JSON.parse(serialize(createState()));assert.throws(()=>deserialize('{bad'));

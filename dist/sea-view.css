@@ -1,5 +1,7 @@
 .sea-view{position:absolute;inset:0;background:#7799ab;isolation:isolate;color:#deeaee;font-size:12px}
 .sea-active{min-height:0}
+.sea-ww2-task{padding:12px 13px;border-bottom:1px solid #48636f80;background:#203a3e70;flex-shrink:0}.sea-ww2-task strong{font-size:12px;font-weight:500;color:#d7d5bd}.sea-ww2-task p{font-size:9px;color:#b1c4c9;margin:8px 0;line-height:1.7}.sea-ww2-task small{font-size:9px;color:#97b4be;line-height:1.8}.sea-plan{width:100%;margin-top:10px;padding:8px!important;background:#80cbb824;color:#c0e3d6;border:1px solid #82b29f80;font-size:10px}.sea-task-actions{display:flex;gap:3px;margin-top:4px}.sea-task-actions button{flex:1;padding:7px 3px;font-size:9px;color:#b5d0d5}.sea-launch{border:1px solid #648e86;color:#bde2d2;padding:4px 8px;font-size:9px}.sea-ww2-mobile{display:none;position:absolute;left:12px;top:112px;z-index:3;font-size:10px;color:#c7e4d7;padding:9px 12px}
+@media(max-width:760px){.sea-ww2-mobile{display:block}.ww2-view.roster-open .sea-ww2-mobile{display:none}.ww2-view .sea-roster{top:112px;max-height:57%}.sea-ww2-task{padding:10px 12px}}
 .sea-view>canvas{display:block;width:100%;height:100%;touch-action:none;outline-offset:-3px}
 .sea-active #map,.sea-active>.hud-widget,.sea-active>.hud-dock,.sea-active>.mission-strip{display:none!important}
 .sea-loading{position:absolute;inset:0;z-index:8;display:grid;place-content:center;text-align:center;gap:12px;background:#0e1c27;color:#cadce0}

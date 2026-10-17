@@ -395,35 +395,40 @@ BUILDERS = {
     'helicopter': ('通用舰载直升机',18,helicopter),
     'facility': ('通用岸基设施',34,facility),
 }
-manifest={'version':1,'units':'metres','forward':'-Z','up':'+Y',
-    'description':'原创通用示意模型，非具体型号复刻；游戏参数独立于外观。',
-    'source':'generic-fleet.blend','models':{}}
-for index,(key,(label,length,build)) in enumerate(BUILDERS.items()):
-    prefix=key
-    collection=bpy.data.collections.new(key+' · '+label)
-    bpy.context.scene.collection.children.link(collection)
-    build()
-    bpy.ops.object.select_all(action='DESELECT')
-    for obj in collection.objects:
-        obj.select_set(True)
-    bpy.context.view_layer.objects.active=next(iter(collection.objects))
-    bpy.ops.export_scene.gltf(filepath=str(OUT/f'generic-{key}.glb'),export_format='GLB',
-        use_selection=True,export_apply=True,export_yup=True,export_animations=False,
-        export_cameras=False,export_lights=False,export_extras=True)
-    manifest['models'][key]={'name':label,'file':f'generic-{key}.glb','length':length,
-        'parts':len(collection.objects)}
-    for obj in collection.objects:
-        obj.location.x+=(index%4)*380
-        obj.location.y-=(index//4)*410
-    collection['model_key']=key
-    collection['export_origin']=[(index%4)*380,-(index//4)*410,0]
-    collection['model_length']=length
-    print('EXPORTED',key,flush=True)
+def build_library():
+    global prefix, collection
+    manifest={'version':1,'units':'metres','forward':'-Z','up':'+Y',
+        'description':'原创通用示意模型，非具体型号复刻；游戏参数独立于外观。',
+        'source':'generic-fleet.blend','models':{}}
+    for index,(key,(label,length,build)) in enumerate(BUILDERS.items()):
+        prefix=key
+        collection=bpy.data.collections.new(key+' · '+label)
+        bpy.context.scene.collection.children.link(collection)
+        build()
+        bpy.ops.object.select_all(action='DESELECT')
+        for obj in collection.objects:
+            obj.select_set(True)
+        bpy.context.view_layer.objects.active=next(iter(collection.objects))
+        bpy.ops.export_scene.gltf(filepath=str(OUT/f'generic-{key}.glb'),export_format='GLB',
+            use_selection=True,export_apply=True,export_yup=True,export_animations=False,
+            export_cameras=False,export_lights=False,export_extras=True)
+        manifest['models'][key]={'name':label,'file':f'generic-{key}.glb','length':length,
+            'parts':len(collection.objects)}
+        for obj in collection.objects:
+            obj.location.x+=(index%4)*380
+            obj.location.y-=(index//4)*410
+        collection['model_key']=key
+        collection['export_origin']=[(index%4)*380,-(index//4)*410,0]
+        collection['model_length']=length
+        print('EXPORTED',key,flush=True)
 
-(OUT/'manifest.json').write_text(json.dumps(manifest,ensure_ascii=False,indent=2)+'\n')
-bpy.ops.object.select_all(action='DESELECT')
-bpy.context.scene.world.color=(.12,.16,.19)
-bpy.context.scene['Asset notes']='Original generic blockout fleet. Metres. Model collections are arranged for editing. Export each collection centred at origin. Individual parts remain named and editable.'
-bpy.context.preferences.filepaths.save_version=0
-bpy.ops.wm.save_as_mainfile(filepath=str(OUT/'generic-fleet.blend'),compress=True)
-print('FLEET SOURCE SAVED',flush=True)
+    (OUT/'manifest.json').write_text(json.dumps(manifest,ensure_ascii=False,indent=2)+'\n')
+    bpy.ops.object.select_all(action='DESELECT')
+    bpy.context.scene.world.color=(.12,.16,.19)
+    bpy.context.scene['Asset notes']='Original generic blockout fleet. Metres. Model collections are arranged for editing. Export each collection centred at origin. Individual parts remain named and editable.'
+    bpy.context.preferences.filepaths.save_version=0
+    bpy.ops.wm.save_as_mainfile(filepath=str(OUT/'generic-fleet.blend'),compress=True)
+    print('FLEET SOURCE SAVED',flush=True)
+
+if __name__ == '__main__':
+    build_library()
