@@ -1,16 +1,18 @@
-import {AUTO_PRESETS,AI_DOCTRINES,populateAutoPreset,configureAutomation,beginAutomation,commandAutomation,hasCombatPlatform,updateAutoOutcome,finishAutomation,automationReport,restoreAutomation,recordAutoShot,recordAutoDamage,recordAutoIntercept,recordAutoSortie} from './auto-commander.js?v=0.11.0';
+import {AUTO_PRESETS,AI_DOCTRINES,populateAutoPreset,configureAutomation,beginAutomation,commandAutomation,hasCombatPlatform,updateAutoOutcome,finishAutomation,automationReport,restoreAutomation,recordAutoShot,recordAutoDamage,recordAutoIntercept,recordAutoSortie} from './auto-commander.js?v=0.12.0';
 export {AUTO_PRESETS,AI_DOCTRINES};
-import {buildModernCatalog} from './modern-catalog.js?v=0.11.0';
-import {buildWW2Catalog,WW2_SCENARIOS} from './ww2-data.js?v=0.11.0';
-import {commandWW2,restoreWW2Mission} from './ww2-missions.js?v=0.11.0';
-import {smokeBlocks,updateSmoke} from './ww2-visibility.js?v=0.11.0';
-import {CUSTOM_MISSIONS,supportsCustom,validateCustom,loadoutUsage as capacityUsage,missionWeaponKeys} from './loadout-rules.js?v=0.11.0';
+import {buildModernCatalog} from './modern-catalog.js?v=0.12.0';
+import {buildWW2Catalog,WW2_SCENARIOS} from './ww2-data.js?v=0.12.0';
+import {commandWW2,restoreWW2Mission} from './ww2-missions.js?v=0.12.0';
+import {smokeBlocks,updateSmoke} from './ww2-visibility.js?v=0.12.0';
+import {missionControlled,commandUnits,updateDogfights,fighterType} from './unit-orders.js?v=0.12.0';
+import {criticalImpact,CRITICAL_PARTS} from './ww2-damage.js?v=0.12.0';
+import {CUSTOM_MISSIONS,supportsCustom,validateCustom,loadoutUsage as capacityUsage,missionWeaponKeys} from './loadout-rules.js?v=0.12.0';
 export {CUSTOM_MISSIONS};
-import {geographicMap,geoToWorld,REAL_MAPS} from './geography.js?v=0.11.0';
-import {seaRoute} from './navigation.js?v=0.11.0';
-import {getBattleTheatre,factionName,inDeploymentZone,nearestSeparationKm} from './battle-theatres.js?v=0.11.0';
+import {geographicMap,geoToWorld,REAL_MAPS} from './geography.js?v=0.12.0';
+import {seaRoute} from './navigation.js?v=0.12.0';
+import {getBattleTheatre,factionName,inDeploymentZone,nearestSeparationKm} from './battle-theatres.js?v=0.12.0';
 export {getBattleTheatre,factionName};
-import {HISTORICAL_SCENARIOS,initializeHistorical,historicalOrder,historicalObjectives,updateHistorical} from './historical-missions.js?v=0.11.0';
+import {HISTORICAL_SCENARIOS,initializeHistorical,historicalOrder,historicalObjectives,updateHistorical,missionSearch,missionZone} from './historical-missions.js?v=0.12.0';
 export {historicalObjectives};
 // 原创确定性游戏模型。距离：海里；速度：节；推演时间：秒。
 export const WORLD={width:240,height:170};
@@ -114,13 +116,18 @@ export function stopAutoBattle(s){if(!isAutoBattle(s)||s.phase!=='running')retur
 export function getBattleReport(s){const report=automationReport(s);if(!report)return null;const theatre=getBattleTheatre(s);if(theatre){report.theatre={id:theatre.id,name:theatre.name,initialSeparationKm:theatre.initialSeparationKm,factions:{blue:theatre.factions.blue.name,red:theatre.factions.red.name}};const initial=s.automation.deployment?JSON.parse(s.automation.deployment).units:s.units;report.initialDistanceKm=nearestSeparationKm(initial);}return report;}
 export function restartAutoBattle(s){if(!isAutoBattle(s))throw Error('当前不是自动对战');if(!s.automation.deployment){const copy=deserialize(serialize(s));copy.paused=true;return copy;}return deserialize(s.automation.deployment);}
 const missionAPI=()=>({spawn,route:missionRoute,log,types:TYPES,visibleContacts,unitById,airborne,launchDeck,returnToBase,fire,deploySmoke});
+const unitOrderAPI=()=>({...missionAPI(),world:worldFor,inLand,weaponStats,cruiseMaxSpeed,
+  publicSearch:s=>isHistorical(s)?missionSearch(s):null,publicGoal:s=>isHistorical(s)?missionZone(s):null,
+  hasReport:(s,u,c)=>!!c&&(c.observations?.[u.id]||radioAvailable(u)&&u.datalink&&!jammingAgainst(s,u))});
 export const issueMissionOrder=(s,key)=>historicalOrder(s,key,missionAPI());
 export function log(s,message,kind='info'){s.events.unshift({time:s.time,message,kind});s.events=s.events.slice(0,100);}
 export const unitById=(s,id)=>s.units.find(u=>u.id===id);
 export const airborne=u=>TYPES[u.type].domain==='air'&&!['servicing','grounded'].includes(u.flightState);
 export const domainOf=u=>TYPES[u.type].domain==='air'&&!airborne(u)?u.deckBased?'surface':'land':TYPES[u.type].domain;
 export const weaponStats=(u,key)=>({...WEAPONS[key],...TYPES[u.type].profiles[key]});
-export const maxSpeed=u=>TYPES[u.type].speed*(u.hp<TYPES[u.type].hp*.4?.65:1);
+export const cruiseMaxSpeed=u=>TYPES[u.type].speed*(u.hp<TYPES[u.type].hp*.4?.65:1);
+export const maxSpeed=u=>cruiseMaxSpeed(u)*(u.combatSlow||1);
+export const effectiveSpeed=u=>Math.min(u.speed,maxSpeed(u));
 const radioAvailable=u=>!(TYPES[u.type].model&&TYPES[u.type].domain==='sub'&&u.depth==='deep');
 const radarWorking=(s,u)=>radioAvailable(u)&&u.hp>0&&!u.exited&&u.radar&&u.radarDisabledUntil<=s.time&&(!TYPES[u.type].endurance||airborne(u));
 const heightOf=u=>airborne(u)?ALTITUDES[u.altitude]?.height||3500:domainOf(u)==='sub'?(u.depth==='periscope'?3:0):TYPES[u.type].height;
@@ -135,6 +142,7 @@ function makeUnit(s,type,side,x,y){const t=TYPES[type],n=++s.nextId;return {
   radar:(side==='red'||t.role==='awacs'||type==='awacs')&&t.radar>0,sonar:t.sonar>0,esm:t.esm>0,datalink:true,jamming:false,altitude:t.altitude||'medium',
   autoDefense:true,autoEngage:side==='red',samReserve:Math.floor(t.weapons.sam*.25),loadout:t.loadouts?.[0].id||null,customLoadout:null,wingLoadouts:{},weapons:ammo(t.loadouts?.[0].weapons||t.weapons),ciws:t.ciws,decoys:t.decoys,
   smokeCharges:t.smoke||0,smokeUntil:0,smokeReady:0,
+  commandMode:'mission',lockedTarget:null,aiTarget:null,commandAnchor:null,commandStatus:'随任务计划',searchLeg:0,combatSlow:1,dogfightWith:[],combatGoal:null,criticalHits:[],lastGunAt:-1,
   missionRole:null,exited:false,route:[],leader:null,offset:null,cooldowns:{},defenseCooldown:0,radarDisabledUntil:0,fuel:t.endurance*60,flightState:'airborne',serviceUntil:0,home:null,sorties:0,supply:t.baseSupply||(type==='airbase'?30:0),airwing:{...(t.deck?.wing||{})},deckReady:0,deckBased:false,originDeck:null,fuelSupply:t.fuelSupply||0,refuelTarget:null,supplyTarget:null,depth:t.domain==='sub'?'deep':null,ai:null,trail:[],
 };}
 function spawn(s,type,side,x,y){const u=makeUnit(s,type,side,x,y);s.units.push(u);s[side==='blue'?'budget':'redBudget']-=TYPES[type].cost;return u;}
@@ -191,6 +199,22 @@ export function start(s){
   s.phase='running';s.paused=false;if(isAutoBattle(s))beginAutomation(s,autoDeployment,autoAPI());scan(s);log(s,'推演开始。双方遵循相同探测与交战规则。');return {ok:true};
 }
 const controllable=(s,u)=>u&&u.hp>0&&!u.exited&&s.phase!=='ended'&&!(isAutoBattle(s)&&s.phase==='running')&&(u.side==='blue'||s.phase==='setup'&&freeDeploy(s));
+export function setUnitControl(s,id,mode){
+  const u=unitById(s,id);
+  if(!controllable(s,u)||!['mission','manual','ai'].includes(mode))return {ok:false,error:'请选择可指挥的本方单位'};
+  u.commandMode=mode;u.lockedTarget=u.aiTarget=null;u.commandAnchor={x:u.x,y:u.y};u.searchLeg=0;u.commandStatus={mission:'随任务计划',manual:'手动指挥',ai:'AI 接管中'}[mode];u.leader=null;
+  if(mode==='ai'){u.autoEngage=!TYPES[u.type].support;if(TYPES[u.type].radar)u.radar=true;}
+  if(mode==='manual'){u.combatGoal=null;u.dogfightWith=[];}
+  if(s.phase==='running'){commandUnits(s,unitOrderAPI());updateDogfights(s,unitOrderAPI());}
+  log(s,`${u.name}：${u.commandStatus}`);return {ok:true};
+}
+export function lockUnitTarget(s,id,targetId){
+  const u=unitById(s,id),c=u&&s.contacts[u.side][targetId];
+  if(!controllable(s,u)||s.phase!=='running')return {ok:false,error:'开始推演后请选择可指挥的本方单位'};
+  if(!c||!unitOrderAPI().hasReport(s,u,c)||s.time-c.time>(isWW2(s)?900:90))return {ok:false,error:'需要本单位可接收的敌方接触报告'};
+  u.commandMode='follow';u.lockedTarget=targetId;u.aiTarget=null;u.autoEngage=!TYPES[u.type].support;u.leader=null;u.refuelTarget=null;
+  commandUnits(s,unitOrderAPI());updateDogfights(s,unitOrderAPI());log(s,`${u.name} 锁定并跟随 ${c.label}`);return {ok:true};
+}
 export function deploySmoke(s,id){
   const u=unitById(s,id);
   if(!isWW2(s)||s.phase!=='running'||!controllable(s,u)||!TYPES[u.type].smoke)return {ok:false,error:'请选择可施放烟幕的本方驱逐舰'};
@@ -206,19 +230,20 @@ export function setRoute(s,id,p,append=false){
   const from=append&&u.route.length?u.route.at(-1):u;
   if(TYPES[u.type].domain!=='air'&&!clearPath(from,p,s))return {ok:false,error:'航线穿越陆地，请设置中间航点'};
   if(append&&u.route.length>=16)return {ok:false,error:'航线最多包含 16 个航点'};
+  u.commandMode='manual';u.lockedTarget=u.aiTarget=null;u.commandStatus='手动航线';u.combatGoal=null;
   u.refuelTarget=null;u.leader=null;u.route=append?[...u.route,{...p}]:[{...p}];if(u.speed===0)u.speed=Math.round(TYPES[u.type].speed*.55);
   log(s,`${u.name}：${append?'追加':'更新'}航点 ${p.x.toFixed(0)}, ${p.y.toFixed(0)} nm`);return {ok:true};
 }
 export function setSpeed(s,id,value){
   const u=unitById(s,id);if(!controllable(s,u)||!Number.isFinite(value))return {ok:false,error:'速度无效'};
   if(TYPES[u.type].domain==='land'||['returning','servicing','grounded'].includes(u.flightState))return {ok:false,error:'当前单位不能调整速度'};
-  const min=TYPES[u.type].domain==='air'&&!TYPES[u.type].rotary?Math.round(TYPES[u.type].speed*.4):0;u.speed=Math.max(min,Math.min(maxSpeed(u),value));return {ok:true};
+  const min=TYPES[u.type].domain==='air'&&!TYPES[u.type].rotary?Math.round(TYPES[u.type].speed*.4):0;u.speed=Math.max(min,Math.min(cruiseMaxSpeed(u),value));u.commandMode='manual';u.lockedTarget=u.aiTarget=null;u.commandStatus='手动航速';return {ok:true};
 }
-export function setAltitude(s,id,value){const u=unitById(s,id);if(!controllable(s,u)||!airborne(u)||!Object.hasOwn(ALTITUDES,value)||!(TYPES[u.type].altitudes|| (TYPES[u.type].rotary?['low']:Object.keys(ALTITUDES))).includes(value))return {ok:false,error:'当前平台无法使用该高度'};u.altitude=value;log(s,`${u.name} 改为${ALTITUDES[value].name}`);return {ok:true};}
+export function setAltitude(s,id,value){const u=unitById(s,id);if(!controllable(s,u)||!airborne(u)||!Object.hasOwn(ALTITUDES,value)||!(TYPES[u.type].altitudes|| (TYPES[u.type].rotary?['low']:Object.keys(ALTITUDES))).includes(value))return {ok:false,error:'当前平台无法使用该高度'};u.altitude=value;u.commandMode='manual';u.lockedTarget=u.aiTarget=null;u.commandStatus='手动高度';log(s,`${u.name} 改为${ALTITUDES[value].name}`);return {ok:true};}
 export function returnToBase(s,id){const u=unitById(s,id);if(!u||u.hp<=0||!airborne(u)||s.phase!=='running')return {ok:false,error:'只有推演中的在空飞机可以返航'};if(!u.home)assignHome(s,u);u.refuelTarget=null;u.flightState='returning';u.route=[{x:u.home.x,y:u.home.y}];u.speed=Math.round(TYPES[u.type].speed*.7);log(s,`${u.side==='blue'?u.name:'红方飞机'} 返航补给`);return {ok:true};}
 export function formFleet(s,leaderId){
   const leader=unitById(s,leaderId);if(!controllable(s,leader)||leader.side!=='blue'||TYPES[leader.type].domain!=='surface')return {ok:false,error:'请选择蓝方水面舰作为旗舰'};
-  let n=0;for(const u of s.units.filter(u=>u.side==='blue'&&u.hp>0&&!u.exited&&u.id!==leaderId&&TYPES[u.type].domain==='surface')){u.leader=leaderId;u.offset={x:(n%2===0?-1:1)*(6+Math.floor(n/2)*4),y:8+Math.floor(n/2)*5};u.route=[];u.speed=Math.min(leader.speed,maxSpeed(u));n++;}log(s,`${leader.name} 为旗舰，${n} 艘舰艇跟随`);return {ok:true};
+  let n=0;for(const u of s.units.filter(u=>u.side==='blue'&&u.hp>0&&!u.exited&&u.id!==leaderId&&TYPES[u.type].domain==='surface')){u.commandMode='manual';u.lockedTarget=u.aiTarget=null;u.leader=leaderId;u.offset={x:(n%2===0?-1:1)*(6+Math.floor(n/2)*4),y:8+Math.floor(n/2)*5};u.route=[];u.speed=Math.min(leader.speed,maxSpeed(u));n++;}log(s,`${leader.name} 为旗舰，${n} 艘舰艇跟随`);return {ok:true};
 }
 function jammingAgainst(s,u){return s.units.some(v=>v.side!==u.side&&v.hp>0&&v.jamming&&airborne(v)&&distance(u,v)<=TYPES[v.type].jammer);}
 function detection(s,observer,target){
@@ -226,8 +251,7 @@ function detection(s,observer,target){
   const t=TYPES[observer.type],d=distance(observer,target),weather=s.weather==='storm'?.78:1,domain=domainOf(target);
   if(t.era==='ww2'){
     let vision=(domain==='air'?t.eoAirRange||8:t.eoRange||10)*(s.weather==='storm'?.4:1)*(SCENARIOS[s.scenario].night?(domain==='land'?.65:domain==='air'?.4:.26):1);
-    const flash=(target.cooldowns.gun||0)-s.time;
-    if(SCENARIOS[s.scenario].night&&flash>Math.max(0,(TYPES[target.type].profiles.gun?.cooldown||35)-18))vision=Math.max(vision,8);
+    if(SCENARIOS[s.scenario].night&&target.lastGunAt>=0&&s.time-target.lastGunAt<18)vision=Math.max(vision,8);
     if(domain!=='sub'&&d<vision&&!smokeBlocks(s,observer,target)&&(airborne(observer)||domain==='air'||domain==='land'||clearPath(observer,target,s)))return {source:'目视',quality:'track'};
     const range=Math.min((domain==='air'?t.radarAir||t.radar:t.radarSurface||0)*weather,radarHorizon(observer,target));
     if(domain!=='sub'&&radarWorking(s,observer)&&d<range&&(airborne(observer)||domain==='air'||domain==='land'||clearPath(observer,target,s))){
@@ -271,7 +295,7 @@ export function scan(s){
         const c=s.contacts[side][target.id],visual=best.source==='目视';
         c.classification=visual?(['carrier','battleship'].includes(TYPES[target.type].category)?TYPES[target.type].category:domainOf(target)==='air'?TYPES[target.type].ww2Role:domainOf(target)):old?.classification||null;
         c.disabled=visual?TYPES[target.type].ww2Role==='carrier'&&target.hp<TYPES[target.type].hp*.4:old?.disabled===true;
-        if(visual||best.source==='雷达'&&best.quality==='track'){c.course=target.heading;c.speed=domainOf(target)==='surface'&&!target.route.length&&!target.leader?0:target.speed;}
+        if(visual||best.source==='雷达'&&best.quality==='track'){c.course=target.heading;c.speed=domainOf(target)==='surface'&&!target.route.length&&!target.leader?0:effectiveSpeed(target);}
         if(c.classification==='carrier')c.label=`航母接触 ${String(index).padStart(2,'0')}`;
       }
       if(!old&&side==='blue')log(s,`新接触：${s.contacts.blue[target.id].label} · ${best.source}`,'sensor');
@@ -315,6 +339,7 @@ export function fireCheck(s,shooterId,targetId,weapon){
 function launch(s,u,target,key,targetKind='unit'){
   const w=weaponStats(u,key),c=targetKind==='unit'?s.contacts[u.side][target.id]:target;
   recordAutoShot(s,u,key);u.weapons[key]--;u.cooldowns[key]=s.time+w.cooldown*(u.hp<TYPES[u.type].hp*.4?1.5:1);
+  if(key==='gun')u.lastGunAt=s.time;
   const m={id:`m${++s.nextMissile}`,shooter:u.id,target:target.id,targetKind,side:u.side,weapon:key,x:u.x,y:u.y,travel:0,heading:bearing(u,c),trail:[],aim:{x:c.x,y:c.y},launchDistance:distance(u,c),range:w.range,guidance:w.guidance,guidanceTime:s.time,seekerLocked:false,decoyTried:false,ciwsTried:[]};
   if(isWW2(s)&&(key==='torpedo'||key==='gun'&&w.caliber)&&Number.isFinite(c.course)&&Number.isFinite(c.speed)){
     // Fixed gyro course led from the observed course/speed, never homing on
@@ -330,7 +355,7 @@ export function fire(s,shooterId,targetId,weapon){const check=fireCheck(s,shoote
 function random(s){s.seed=(Math.imul(s.seed,1664525)+1013904223)>>>0;return s.seed/4294967296;}
 function move(s,u,dt){
   const t=TYPES[u.type];if(t.domain==='land'||t.domain==='air'&&!airborne(u))return;
-  let goal=u.route[0];if(u.leader){const leader=unitById(s,u.leader);if(leader?.hp>0){goal={x:leader.x+u.offset.x,y:leader.y+u.offset.y};if(distance(u,goal)<1.5)return;}else{u.leader=null;u.offset=null;}}
+  let goal=u.combatGoal||u.route[0];if(u.leader&&!u.combatGoal){const leader=unitById(s,u.leader);if(leader?.hp>0){goal={x:leader.x+u.offset.x,y:leader.y+u.offset.y};if(distance(u,goal)<1.5)return;}else{u.leader=null;u.offset=null;}}
   if(!goal&&t.domain==='air'&&!TYPES[u.type].rotary){
     u.heading=(u.heading+dt*2)%360;const step=Math.min(u.speed,maxSpeed(u))*dt/3600,next={x:u.x+Math.sin(u.heading*Math.PI/180)*step,y:u.y-Math.cos(u.heading*Math.PI/180)*step};
     if(inBounds(next,s)){u.x=next.x;u.y=next.y;}else u.heading=(u.heading+180)%360;return;
@@ -338,7 +363,7 @@ function move(s,u,dt){
   if(!goal||u.speed===0)return;const d=distance(u,goal),step=Math.min(u.speed,maxSpeed(u))*dt/3600;u.heading=bearing(u,goal);
   const next={x:u.x+(goal.x-u.x)*Math.min(1,step/(d||1)),y:u.y+(goal.y-u.y)*Math.min(1,step/(d||1))};
   if(!inBounds(next,s)||t.domain!=='air'&&!clearPath(u,next,s)){u.route=[];u.leader=null;log(s,`${u.side==='blue'?u.name:'红方单位'} 航路受阻`,'warning');return;}
-  if(s.time%5<dt){u.trail.push({x:u.x,y:u.y});u.trail=u.trail.slice(-80);}u.x=next.x;u.y=next.y;if(d<=step&&!u.leader)u.route.shift();
+  if(s.time%5<dt){u.trail.push({x:u.x,y:u.y});u.trail=u.trail.slice(-80);}u.x=next.x;u.y=next.y;if(d<=step&&!u.leader&&!u.combatGoal)u.route.shift();
 }
 export function deckCompatible(shipType,airType){const deck=TYPES[shipType]?.deck,air=TYPES[airType];return !!deck&&air?.domain==='air'&&(air.carrierModes||[]).some(mode=>deck.modes.includes(mode));}
 export const supportsCustomLoadout=type=>supportsCustom(TYPES[type]);
@@ -383,7 +408,7 @@ export function launchDeck(s,id,type,loadoutId){
   if(deckAirborne(s,base)>=deck.capacity)return {ok:false,error:'已达本舰在空容量，请等待回收'};
   if(s.units.length>=60)return {ok:false,error:'战局单位数量已达 60 个上限'};
   const selected=loadoutId===undefined?base.wingLoadouts[type]:loadoutId,result=resolveLoadout(type,selected);if(!result.ok)return result;const row=result.row;
-  const u=makeUnit(s,type,base.side,base.x,base.y);u.originDeck=base.id;u.home={x:base.x,y:base.y,baseId:base.id};u.loadout=row.id;u.customLoadout=row.id==='custom'?structuredClone(row):null;u.weapons=ammo(row.weapons);u.speed=Math.round(TYPES[type].speed*.65);s.units.push(u);recordAutoSortie(s,u);base.airwing[type]--;base.deckReady=s.time+deck.cooldown*(s.weather==='storm'?1.5:1);log(s,`${base.side==='blue'?base.name:'红方航空舰'} 放飞${TYPES[type].name}`);return {ok:true,unit:u};
+  const u=makeUnit(s,type,base.side,base.x,base.y);u.originDeck=base.id;u.home={x:base.x,y:base.y,baseId:base.id};u.loadout=row.id;u.customLoadout=row.id==='custom'?structuredClone(row):null;u.weapons=ammo(row.weapons);u.speed=Math.round(TYPES[type].speed*.65);if(base.commandMode==='ai'){u.commandMode='ai';u.commandAnchor={x:base.x,y:base.y};}s.units.push(u);recordAutoSortie(s,u);base.airwing[type]--;base.deckReady=s.time+deck.cooldown*(s.weather==='storm'?1.5:1);log(s,`${base.side==='blue'?base.name:'红方航空舰'} 放飞${TYPES[type].name}`);return {ok:true,unit:u};
 }
 export function requestRefuel(s,id,tankerId){
   const u=unitById(s,id),donor=unitById(s,tankerId),t=TYPES[u?.type],dt=TYPES[donor?.type];
@@ -413,7 +438,7 @@ function modernSupport(s,dt){
   }
 }
 function modernAI(s){
-  for(const u of [...s.units]){if(u.side!=='red'||u.hp<=0||u.exited)continue;const t=TYPES[u.type];
+  for(const u of [...s.units]){if(u.side!=='red'||u.hp<=0||u.exited||!missionControlled(u))continue;const t=TYPES[u.type];
     if(t.deck){
       const contacts=visibleContacts(s,'red').filter(c=>!c.stale),priority=key=>['awacs','heloAwacs'].includes(TYPES[key].role)?-3:TYPES[key].role==='sead'?-2:TYPES[key].sonar&&contacts.some(c=>c.domain==='sub')?-1:0;
       const keys=Object.keys(u.airwing).sort((a,b)=>priority(a)-priority(b));
@@ -451,15 +476,16 @@ function aviation(s,u,dt){
   }
 }
 function combatAI(s){
-  for(const u of s.units.filter(u=>u.autoEngage&&u.hp>0&&!u.exited&&(TYPES[u.type].domain!=='air'||airborne(u)&&u.flightState!=='returning'))){
+  for(const u of s.units.filter(u=>(u.autoEngage||u.autoDefense&&u.dogfightWith?.length&&fighterType(TYPES[u.type]))&&u.hp>0&&!u.exited&&(TYPES[u.type].domain!=='air'||airborne(u)&&u.flightState!=='returning'))){
     if(TYPES[u.type].support)continue;
     if(!isAutoBattle(s)&&u.missionRole==='raider'&&!u.weapons.bomb){if(u.flightState==='airborne')returnToBase(s,u.id);continue;}
-    const contacts=visibleContacts(s,u.side).filter(c=>!c.stale&&Object.keys(WEAPONS).some(key=>u.weapons[key]>0&&WEAPONS[key].targets.includes(c.domain))).sort((a,b)=>(!isAutoBattle(s)&&u.missionRole==='raider'?(unitById(s,a.id)?.missionRole==='transport'?0:1)-(unitById(s,b.id)?.missionRole==='transport'?0:1):0)||(a.domain==='air'?0:1)-(b.domain==='air'?0:1)||distance(u,a)-distance(u,b));
+    const strikeTarget=isWW2(s)&&['dive','torpedo'].includes(TYPES[u.type].ww2Role)&&s.contacts[u.side][u.aiTarget]?.classification==='carrier'?u.aiTarget:null;
+    const contacts=visibleContacts(s,u.side).filter(c=>!c.stale&&(!u.lockedTarget||c.id===u.lockedTarget)&&(!strikeTarget||c.id===strikeTarget)&&Object.keys(WEAPONS).some(key=>u.weapons[key]>0&&weaponStats(u,key).targets.includes(c.domain))).sort((a,b)=>(a.id===(u.lockedTarget||u.aiTarget)?0:1)-(b.id===(u.lockedTarget||u.aiTarget)?0:1)||(!isAutoBattle(s)&&u.missionRole==='raider'?(unitById(s,a.id)?.missionRole==='transport'?0:1)-(unitById(s,b.id)?.missionRole==='transport'?0:1):0)||(a.domain==='air'?0:1)-(b.domain==='air'?0:1)||distance(u,a)-distance(u,b));
     for(const c of contacts){
       if(c.domain==='air'&&s.missiles.filter(m=>m.side===u.side&&m.targetKind==='unit'&&m.target===c.id).length>=2)continue;
       let fired=false;for(const key of ['ir','aam','sam','point','arm','supersonic','asm','asroc','torpedo','atgm','pgm','bomb','cruise','gun'])if(fireCheck(s,u.id,c.id,key).ok){fire(s,u.id,c.id,key);fired=true;break;}if(fired)break;
     }
-    if(isWW2(s)||isAutoBattle(s)||u.side!=='red'||TYPES[u.type].domain==='land'||isHistorical(s)&&['escape','mainTarget'].includes(u.missionRole))continue;
+    if(isWW2(s)||isAutoBattle(s)||!missionControlled(u)||u.side!=='red'||TYPES[u.type].domain==='land'||isHistorical(s)&&['escape','mainTarget'].includes(u.missionRole))continue;
     if(u.refuelTarget)continue;
     const target=contacts.find(c=>c.quality==='track'&&usableContact(s,u,c));if(!target)continue;
     const ranges=Object.keys(WEAPONS).filter(key=>u.weapons[key]>0&&WEAPONS[key].targets.includes(target.domain)).map(key=>weaponStats(u,key).range*.65),desired=Math.max(...ranges,.5),d=distance(u,target);
@@ -516,7 +542,7 @@ function guidance(s,m,target){
   return m.guidance!=='semi'||s.time-m.guidanceTime<=6;
 }
 function hitChance(s,m,target){
-  const w=projectileStats(s,m),ratio=m.launchDistance/m.range;let chance=w.hit*(ratio>.8?.64:ratio>.55?.85:1)*(s.weather==='storm'?.88:1);
+  const w=projectileStats(s,m),ratio=m.launchDistance/m.range;let chance=w.hit*(isWW2(s)&&m.weapon==='bomb'?1:ratio>.8?.64:ratio>.55?.85:1)*(s.weather==='storm'?.88:1);
   if(m.guidance==='semi'&&s.time-m.guidanceTime>3)chance*=.55;
   if(m.targetKind==='unit'){
     if(isWW2(s)&&m.weapon==='gun'&&w.caliber){
@@ -527,7 +553,7 @@ function hitChance(s,m,target){
     if(jammingAgainst(s,m))chance*=.8;
     if(target.autoDefense&&target.decoys>0&&!m.decoyTried){target.decoys--;m.decoyTried=true;chance*=m.weapon==='torpedo'?.7:.65;}
     if(m.guidance==='passive'&&!radarWorking(s,target))chance*=.3;
-  }return Math.max(.08,Math.min(.93,chance));
+  }return Math.max(isWW2(s)?.02:.08,Math.min(.93,chance));
 }
 function damage(s,target,m){
   const stats=projectileStats(s,m),type=TYPES[target.type];
@@ -537,9 +563,16 @@ function damage(s,target,m){
     amount*=caliber<250?Math.max(.08,1-type.armor*(caliber<150?1.15:1)):1-type.armor*(.2+bow*.25);
   }
   if(isWW2(s)&&m.weapon==='gun'&&stats.caliber>=350&&type.category==='destroyer')amount*=.65;
-  recordAutoDamage(s,target,unitById(s,m.shooter),Math.min(target.hp,amount),autoAPI());target.hp=Math.max(0,target.hp-amount);target.speed=Math.min(target.speed,maxSpeed(target));
+  const impact=isWW2(s)?criticalImpact(target,m.weapon,stats,amount,type,()=>random(s)):{amount,part:null};amount=impact.amount;
+  recordAutoDamage(s,target,unitById(s,m.shooter),Math.min(target.hp,amount),autoAPI());target.hp=Math.max(0,target.hp-amount);target.speed=Math.min(target.speed,cruiseMaxSpeed(target));
+  if(impact.part){
+    target.criticalHits=[...(target.criticalHits||[]),{part:impact.part,weapon:m.weapon,time:s.time}].slice(-4);
+    if(impact.part==='bridge'){target.radarDisabledUntil=Math.max(target.radarDisabledUntil,s.time+240);target.cooldowns.gun=Math.max(target.cooldowns.gun||0,s.time+120);}
+    log(s,`${target.side==='blue'?target.name:'敌方接触'} ${CRITICAL_PARTS[impact.part]}遭到致命命中，结构重伤`,'combat');
+  }
   if(m.weapon==='arm'&&target.hp>0){target.radarDisabledUntil=s.time+180;log(s,`${target.side==='blue'?target.name:'红方雷达'} 受压制，三分钟内无法工作`,'combat');}
   if(target.hp===0){log(s,`${target.side==='blue'?target.name:'红方接触'} 被摧毁`,'combat');for(const side of ['blue','red'])delete s.contacts[side][target.id];}else log(s,`${projectileStats(s,m).name} 命中${target.side==='blue'?target.name:'红方接触'}`,'combat');
+  return impact.part;
 }
 function updateMissiles(s,dt){
   const removed=new Set(),keep=[];
@@ -551,7 +584,7 @@ function updateMissiles(s,dt){
     if(s.time%2<dt){m.trail.push({x:m.x,y:m.y});m.trail=m.trail.slice(-30);}
     if(d<=travel+.25){
       const hit=valid&&distance(m,target)<=travel+.65&&random(s)<hitChance(s,m,target);s.effects.push({x:m.aim.x,y:m.aim.y,time:s.time,kind:hit?'hit':'miss'});
-      if(hit&&m.targetKind==='unit')damage(s,target,m);else if(hit){recordAutoIntercept(s,m.side);removed.add(target.id);log(s,`${m.side==='blue'?'蓝方':'红方'} 防空导弹拦截成功`,'combat');}else log(s,`${w.name} ${valid?'未命中或目标已离开最后位置':'失去雷达照射，脱靶'}`,'combat');continue;
+      if(hit&&m.targetKind==='unit'){if(damage(s,target,m))s.effects.at(-1).kind='critical';}else if(hit){recordAutoIntercept(s,m.side);removed.add(target.id);log(s,`${m.side==='blue'?'蓝方':'红方'} 防空导弹拦截成功`,'combat');}else log(s,`${w.name} ${valid?'未命中或目标已离开最后位置':'失去雷达照射，脱靶'}`,'combat');continue;
     }
     m.x+=(m.aim.x-m.x)*Math.min(1,travel/d);m.y+=(m.aim.y-m.y)*Math.min(1,travel/d);m.travel+=travel;
     if(m.travel<=m.range*1.15&&inBounds(m,s)&&(m.weapon!=='torpedo'||!inLand(m,s)))keep.push(m);else log(s,`${w.name} 航程耗尽或航路受阻`,'combat');
@@ -570,9 +603,9 @@ export function step(s,seconds){
   if(s.paused||s.phase!=='running'||!Number.isFinite(seconds)||seconds<=0)return;let remaining=Math.min(seconds,600);
   if(isAutoBattle(s)){const total=remaining+(s.automation.tickRemainder||0);remaining=Math.floor(total+1e-9);s.automation.tickRemainder=Math.max(0,total-remaining);}
   while(remaining>0&&s.phase==='running'){const dt=Math.min(1,remaining);remaining-=dt;s.time+=dt;
-    modernSupport(s,dt);if(isWW2(s))updateSmoke(s);
+    modernSupport(s,dt);if(isWW2(s))updateSmoke(s);updateDogfights(s,unitOrderAPI());
     for(const u of s.units)if(u.hp>0&&!u.exited){aviation(s,u,dt);if(u.hp>0)move(s,u,dt);}
-    s.sensorClock+=dt;s.aiClock+=dt;if(s.sensorClock>=3){scan(s);s.sensorClock%=3;}if(s.aiClock>=8){if(isAutoBattle(s))commandAutomation(s,autoAPI());else if(isWW2(s))commandWW2(s,missionAPI());else modernAI(s);combatAI(s);s.aiClock%=8;}
+    s.sensorClock+=dt;s.aiClock+=dt;if(s.sensorClock>=3){scan(s);s.sensorClock%=3;}if(s.aiClock>=8){if(isAutoBattle(s))commandAutomation(s,autoAPI());else if(isWW2(s))commandWW2(s,missionAPI());else modernAI(s);commandUnits(s,unitOrderAPI());combatAI(s);s.aiClock%=8;}
     defend(s);updateMissiles(s,dt);s.effects=s.effects.filter(e=>s.time-e.time<18);if(isHistorical(s))updateHistorical(s,dt,missionAPI());checkOutcome(s);
   }
 }
@@ -606,6 +639,14 @@ export function deserialize(text){
     for(const [key,max,fallback] of [['fuel',t.endurance*60,t.endurance*60],['ciws',t.ciws,t.ciws],['decoys',t.decoys,t.decoys],['samReserve',t.weapons.sam,0],['supply',t.baseSupply||30,u.supply],['sorties',100,0],['serviceUntil',1e8,0],['radarDisabledUntil',1e8,0],['defenseCooldown',1e8,0]])u[key]=number(r[key],0,max,legacy?fallback:undefined);
     u.smokeCharges=number(r.smokeCharges,0,t.smoke||0,t.smoke||0);u.smokeUntil=number(r.smokeUntil,0,1e8,0);u.smokeReady=number(r.smokeReady,0,1e8,0);
     if(!Number.isInteger(u.smokeCharges)||!t.smoke&&(u.smokeUntil||u.smokeReady))throw Error('烟幕设备状态无效');
+    if(r.commandMode!==undefined&&!['mission','manual','ai','follow'].includes(r.commandMode))throw Error('单位指挥方式无效');
+    u.commandMode=r.commandMode||'mission';u.commandAnchor=r.commandAnchor?point(r.commandAnchor,s):null;u.searchLeg=number(r.searchLeg,0,1e8,0);
+    if(!Number.isInteger(u.searchLeg))throw Error('搜索航段无效');
+    u.lockedTarget=typeof r.lockedTarget==='string'?r.lockedTarget:null;u.aiTarget=typeof r.aiTarget==='string'?r.aiTarget:null;
+    if(u.commandMode==='follow'&&!u.lockedTarget)throw Error('锁定目标缺失');
+    u.commandStatus=typeof r.commandStatus==='string'?r.commandStatus.slice(0,120):'随任务计划';u.lastGunAt=number(r.lastGunAt,-1,s.time,-1);
+    if(r.criticalHits!==undefined&&(!Array.isArray(r.criticalHits)||r.criticalHits.length>4))throw Error('关键损伤记录无效');
+    u.criticalHits=(r.criticalHits||[]).map(hit=>{if(!Object.hasOwn(CRITICAL_PARTS,hit.part)||!['gun','bomb','torpedo'].includes(hit.weapon)||!finite(hit.time,0,s.time)||t.era!=='ww2')throw Error('关键损伤参数无效');return {part:hit.part,weapon:hit.weapon,time:hit.time};});
     if(!['airborne','returning','servicing','grounded'].includes(r.flightState)&&!legacy)throw Error('战局航空状态无效');u.flightState=legacy?'airborne':r.flightState;
     if(t.domain==='air'&&airborne(u)&&!t.rotary)u.speed=Math.max(Math.round(t.speed*.4),u.speed);
     if(!Object.hasOwn(ALTITUDES,r.altitude)&&!legacy)throw Error('战局高度无效');u.altitude=legacy?t.altitude||'medium':r.altitude;
@@ -639,6 +680,7 @@ export function deserialize(text){
     if(u.home?.baseId){const base=unitById(s,u.home.baseId);if(!base||base.side!==u.side||base.type!=='airbase'&&!deckCompatible(base.type,u.type))throw Error('航空基地引用无效');}if(TYPES[u.type].domain==='air'&&!u.home&&s.phase!=='setup')assignHome(s,u);
   }
   for(const u of s.units){
+    for(const key of ['lockedTarget','aiTarget'])if(u[key]&&(!ids.has(u[key])||unitById(s,u[key]).side===u.side))throw Error('单位锁定目标引用无效');
     if(u.originDeck){const origin=unitById(s,u.originDeck);if(!origin||origin.side!==u.side||!Object.hasOwn(TYPES[origin.type].deck?.wing||{},u.type))throw Error('舰载航空队引用无效');}
     if(u.deckBased&&(!u.home?.baseId||!TYPES[unitById(s,u.home.baseId)?.type]?.deck))throw Error('甲板停机引用无效');
     for(const key of ['refuelTarget','supplyTarget'])if(u[key]&&(!unitById(s,u[key])||unitById(s,u[key]).side!==u.side||u[key]===u.id))throw Error('补给目标引用无效');
@@ -672,5 +714,6 @@ export function deserialize(text){
   }
   if(raw.version>=5)restoreAutomation(raw.automation,s,autoAPI());else s.automation=null;
   if(s.scenario==='autobattle'&&!isAutoBattle(s))throw Error('自动对战配置缺失');
+  updateDogfights(s,unitOrderAPI());
   log(s,legacy?'旧战局已升级：加入地平线、燃油与新武器分类，当前暂停。':'战局已载入，保留探测记录，当前暂停。');return s;
 }

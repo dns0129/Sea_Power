@@ -1,6 +1,6 @@
-import {SCENARIOS,TYPES,AUTO_PRESETS,AI_DOCTRINES,createState,createAutoBattle,configureAutoBattle,start,isHistorical,isWW2,isAutoBattle,freeDeploy,worldFor,landFor,getBattleTheatre,factionName} from './engine.js?v=0.11.0';
-import {geographicMap,geoToWorld} from './geography.js?v=0.11.0';
-import {missionZone,missionSearch} from './historical-missions.js?v=0.11.0';
+import {SCENARIOS,TYPES,AUTO_PRESETS,AI_DOCTRINES,createState,createAutoBattle,configureAutoBattle,start,isHistorical,isWW2,isAutoBattle,freeDeploy,worldFor,landFor,getBattleTheatre,factionName} from './engine.js?v=0.12.0';
+import {geographicMap,geoToWorld} from './geography.js?v=0.12.0';
+import {missionZone,missionSearch} from './historical-missions.js?v=0.12.0';
 
 const esc=value=>String(value).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const number=value=>Number(value).toFixed(1).replace(/\.0$/,'');
@@ -132,7 +132,7 @@ export function createScenarioFlow({root,getState,onPause,onLaunch,onResume,hasS
     mode=nextMode;choice=nextChoice;selections[mode]=choice;
     draft=mode==='ai'?createAutoBattle(choice):createState(choice);readOnly=false;
   }
-  const header=()=>`<header class="flow-header"><button class="flow-brand" data-flow-action="home" aria-label="返回主页">SEA POWER</button><span class="flow-header-label">${screen==='brief'?'任务简报':'海空战模拟平台'}</span><span class="flow-header-context">${screen==='brief'?`${esc(modeName(draft))} / ${esc(scenarioName(draft))}`:'海空联合战术沙盘'}</span><small class="flow-version">v0.11.0</small>${screen==='home'?'<button data-flow-action="help">操作指南</button>':`<button data-flow-action="${session?'resume':'home'}">${session?'返回战场':'返回主页'} <span aria-hidden="true">×</span></button>`}</header>`;
+  const header=()=>`<header class="flow-header"><button class="flow-brand" data-flow-action="home" aria-label="返回主页">SEA POWER</button><span class="flow-header-label">${screen==='brief'?'任务简报':'海空战模拟平台'}</span><span class="flow-header-context">${screen==='brief'?`${esc(modeName(draft))} / ${esc(scenarioName(draft))}`:'海空联合战术沙盘'}</span><small class="flow-version">v0.12.0</small>${screen==='home'?'<button data-flow-action="help">操作指南</button>':`<button data-flow-action="${session?'resume':'home'}">${session?'返回战场':'返回主页'} <span aria-hidden="true">×</span></button>`}</header>`;
   function home(){
     return homeMenu({session,hasSave:!session&&hasSave()});
   }

@@ -1,9 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import * as E from '../dist/engine.js?v=0.11.0';
-import {scenarioChoices,missionGoals,briefingChart} from '../dist/scenario-flow.js?v=0.11.0';
-import {seaSnapshot,modelFor} from '../dist/sea-scene-data.js?v=0.11.0';
-import {missionZone} from '../dist/historical-missions.js?v=0.11.0';
+import * as E from '../dist/engine.js?v=0.12.0';
+import {scenarioChoices,missionGoals,briefingChart} from '../dist/scenario-flow.js?v=0.12.0';
+import {seaSnapshot,modelFor} from '../dist/sea-scene-data.js?v=0.12.0';
+import {missionZone} from '../dist/historical-missions.js?v=0.12.0';
 
 const ids=['denmark41','guadalcanal42','samar44'];
 function run(s,seconds){while(seconds>0&&s.phase==='running'){const dt=Math.min(seconds,300);E.step(s,dt);seconds-=dt;}}
@@ -49,7 +49,7 @@ test('黑暗缩短目视，炮口焰暂时暴露开火舰艇，暴露结束后�
   const s=battle('guadalcanal42'),target=s.units[1],observer=s.units.find(u=>u.type==='ww2_kirishima');
   s.units=[observer,target];Object.assign(observer,{x:30,y:22,radar:false});Object.assign(target,{x:36,y:22,radar:false});s.contacts={blue:{},red:{}};
   E.scan(s);assert.equal(s.contacts.red[target.id],undefined);
-  target.cooldowns.gun=E.weaponStats(target,'gun').cooldown;E.scan(s);
+  target.lastGunAt=0;target.cooldowns.gun=E.weaponStats(target,'gun').cooldown;E.scan(s);
   assert.equal(s.contacts.red[target.id].source,'目视');
   s.time=25;E.scan(s);assert.equal(E.visibleContacts(s,'red')[0].stale,true);
 });
@@ -77,7 +77,7 @@ test('战列舰装甲降低小口径舰炮毁伤，大口径主炮能够有效�
   const shot=type=>{
     const s=battle('denmark41'),ship=s.units.find(u=>u.type===type),target=s.units.find(u=>u.type==='ww2_bismarck');
     for(const u of s.units){u.autoEngage=false;u.autoDefense=false;u.route=[];}
-    Object.assign(ship,{x:40,y:30,heading:0});Object.assign(target,{x:44,y:30,heading:0,speed:0});s.seed=1;E.scan(s);
+    Object.assign(ship,{x:40,y:30,heading:0});Object.assign(target,{x:44,y:30,heading:0,speed:0});s.seed=2000;E.scan(s);
     const hp=target.hp;assert.equal(E.fire(s,ship.id,target.id,'gun').ok,true);run(s,9);return hp-target.hp;
   };
   const light=shot('ww2_uk_cruiser'),heavy=shot('ww2_prince_wales');assert.ok(light>0&&light<20);assert.ok(heavy>light*3);

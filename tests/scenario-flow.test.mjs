@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {createState,createAutoBattle,SCENARIOS,AUTO_PRESETS,serialize} from '../dist/engine.js?v=0.11.0';
-import {briefingChart,missionGoals,scenarioChoices,scenarioThumbnail,homeMenu} from '../dist/scenario-flow.js?v=0.11.0';
+import {createState,createAutoBattle,SCENARIOS,AUTO_PRESETS,serialize} from '../dist/engine.js?v=0.12.0';
+import {briefingChart,missionGoals,scenarioChoices,scenarioThumbnail,homeMenu} from '../dist/scenario-flow.js?v=0.12.0';
 
 test('首页直接提供四个模式入口，不渲染海图或自动继续战局',()=>{
   const html=homeMenu();

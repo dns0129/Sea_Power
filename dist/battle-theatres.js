@@ -1,4 +1,4 @@
-import {WW2_SCENARIOS} from './ww2-data.js?v=0.11.0';
+import {WW2_SCENARIOS} from './ww2-data.js?v=0.12.0';
 // Fictional exercise geometry. Coordinates remain nautical miles throughout the engine.
 export const KM_PER_NM=1.852;
 function theatre(initialSeparationKm){const separation=initialSeparationKm/KM_PER_NM;return {

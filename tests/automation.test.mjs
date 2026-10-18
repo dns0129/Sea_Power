@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import * as engine from '../dist/engine.js?v=0.11.0';
+import * as engine from '../dist/engine.js?v=0.12.0';
 
 const {TYPES,addUnit,removeUnit,freeDeploy,step,serialize,deserialize,fireCheck}=engine;
 const clone=value=>structuredClone(value);

@@ -1,6 +1,7 @@
-import {WW2_SCENARIOS,isWW2Scenario} from './ww2-data.js?v=0.11.0';
-import {geographicMap,geoToWorld} from './geography.js?v=0.11.0';
-import {isSurfaceWW2,initializeSurfaceWW2,surfaceWW2Order,commandSurfaceWW2,updateSurfaceWW2,surfaceWW2Objectives,restoreSurfaceWW2} from './ww2-surface.js?v=0.11.0';
+import {missionControlled} from './unit-orders.js?v=0.12.0';
+import {WW2_SCENARIOS,isWW2Scenario} from './ww2-data.js?v=0.12.0';
+import {geographicMap,geoToWorld} from './geography.js?v=0.12.0';
+import {isSurfaceWW2,initializeSurfaceWW2,surfaceWW2Order,commandSurfaceWW2,updateSurfaceWW2,surfaceWW2Objectives,restoreSurfaceWW2} from './ww2-surface.js?v=0.12.0';
 
 export const ww2Zone=s=>{const z=WW2_SCENARIOS[s.scenario].zone;return {...geoToWorld(geographicMap(s),z.lon,z.lat),radius:z.radius,name:z.name};};
 export const ww2Search=s=>geoToWorld(geographicMap(s),...WW2_SCENARIOS[s.scenario].search);
@@ -74,7 +75,7 @@ export function commandWW2(s,api){
   if(!isWW2Scenario(s)||s.phase!=='running')return;
   if(isSurfaceWW2(s))return commandSurfaceWW2(s,api);
   const orders=s.mission.orders,plan=orders.includes('plan');
-  for(const base of [...s.units].filter(u=>live(u)&&api.types[u.type].deck)){
+  for(const base of [...s.units].filter(u=>live(u)&&missionControlled(u)&&api.types[u.type].deck)){
     const red=base.side==='red',search=red||plan||orders.includes('search'),cap=red||plan||orders.includes('cap'),strike=red||plan||orders.includes('strike');
     const reports=strikeReports(s,base.side,api);
     const candidates=Object.keys(base.airwing).filter(type=>base.airwing[type]>0).sort((a,b)=>{
@@ -91,7 +92,7 @@ export function commandWW2(s,api){
       break;
     }
   }
-  for(const u of s.units.filter(u=>live(u)&&api.types[u.type].domain==='air'&&api.airborne(u)&&u.flightState!=='returning')){
+  for(const u of s.units.filter(u=>live(u)&&missionControlled(u)&&api.types[u.type].domain==='air'&&api.airborne(u)&&u.flightState!=='returning')){
     const t=api.types[u.type],role=t.ww2Role,red=u.side==='red';
     if(!red&&!plan&&!orders.includes(role==='scout'?'search':role==='fighter'?'cap':'strike'))continue;
     if(role==='scout'){
@@ -119,6 +120,7 @@ export function commandWW2(s,api){
     }
     const origin=api.unitById(s,u.originDeck),islandRaid=red&&role==='dive'&&u.sorties===0&&['ww2_akagi','ww2_kaga'].includes(origin?.type);
     const c=targetReport(s,u,api),goal=c||islandRaid&&ww2Zone(s);
+    u.aiTarget=c?.id||null;
     if(goal){u.route=[{x:goal.x,y:goal.y}];u.altitude=distance(u,goal)<12?'low':'medium';}
   }
   const reports=strikeReports(s,'blue',api);

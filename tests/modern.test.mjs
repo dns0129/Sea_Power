@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-import {TYPES,WEAPONS,createState,addUnit,start,step,scan,setLoadout,setDepth,setRoute,launchDeck,deckCompatible,requestRefuel,requestSupply,returnToBase,serialize,deserialize,fireCheck,sensorRange,removeUnit} from '../dist/engine.js?v=0.11.0';
+import {TYPES,WEAPONS,createState,addUnit,start,step,scan,setLoadout,setDepth,setRoute,launchDeck,deckCompatible,requestRefuel,requestSupply,returnToBase,serialize,deserialize,fireCheck,sensorRange,removeUnit} from '../dist/engine.js?v=0.12.0';
 import {MODEL_SOURCES,CATEGORIES,PAYLOAD_WEIGHTS} from '../dist/modern-catalog.js';
 const models=Object.entries(TYPES).filter(([,t])=>t.model);
 function setup(){const s=createState('modernlab');s.units=[];s.budget=s.redBudget=1000;return s;}

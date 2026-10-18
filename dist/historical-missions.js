@@ -1,6 +1,7 @@
-import {isWW2Scenario} from './ww2-data.js?v=0.11.0';
-import {initializeWW2,ww2Order,ww2Objectives,updateWW2,ww2Zone,ww2Search} from './ww2-missions.js?v=0.11.0';
-import {REAL_MAPS,geoToWorld} from './geography.js?v=0.11.0';
+import {missionControlled} from './unit-orders.js?v=0.12.0';
+import {isWW2Scenario} from './ww2-data.js?v=0.12.0';
+import {initializeWW2,ww2Order,ww2Objectives,updateWW2,ww2Zone,ww2Search} from './ww2-missions.js?v=0.12.0';
+import {REAL_MAPS,geoToWorld} from './geography.js?v=0.12.0';
 export const HISTORICAL_SCENARIOS={
   bubiyan91:{name:'布比延封锁线',subtitle:'1991 · 海湾战争 · 拦截撤退',mapId:'bubiyan',budget:0,historical:true,date:'1991-01-29—31',duration:1800,difficulty:'入门',
     brief:'指挥舰载直升机与攻击机，在东侧脱离线之前击沉至少 3 艘撤退舰艇；最多允许 1 艘脱离。点击“执行拦截”让航空队进入搜索区，海上兵力负责掩护。任务限时 30 分钟。',
@@ -74,7 +75,7 @@ export function historicalOrder(s,key,api){
   const spec=HISTORICAL_SCENARIOS[s.scenario];if(!spec||s.phase!=='running')return {ok:false,error:'请先开始历史任务'};
   if(![spec.orderKey,'withdraw'].includes(key)||key==='withdraw'&&(s.scenario!=='mantis88'||!s.mission.disabled))return {ok:false,error:'当前阶段无法执行该指令'};
   const goal=key==='withdraw'?missionZone(s):missionSearch(s);let count=0,escortIndex=0;
-  for(const u of s.units.filter(u=>u.side==='blue'&&u.hp>0&&!u.exited&&u.missionRole!=='transport')){
+  for(const u of s.units.filter(u=>u.side==='blue'&&u.hp>0&&!u.exited&&missionControlled(u)&&u.missionRole!=='transport')){
     u.autoEngage=true;if(key==='withdraw'&&u.missionRole!=='flagship')continue;
     if(key!=='withdraw'&&s.scenario==='mantis88'&&u.missionRole==='flagship')continue;
     const destination=key==='escort'&&u.type==='frigate1980'?geoToWorld(REAL_MAPS[spec.mapId],...spec.escortPositions[escortIndex++]):goal;

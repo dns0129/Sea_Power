@@ -1,5 +1,6 @@
+import {missionControlled} from './unit-orders.js?v=0.12.0';
 // Deterministic arena commander. Decisions use friendly state, public terrain and usable contacts.
-import {getBattleTheatre,factionName} from './battle-theatres.js?v=0.11.0';
+import {getBattleTheatre,factionName} from './battle-theatres.js?v=0.12.0';
 export const AI_DOCTRINES={
   balanced:{name:'均衡协同',description:'兼顾搜索、支援和适中距离交战。',standoff:.72,speed:.65},
   aggressive:{name:'积极进攻',description:'更快接敌，接近后再集中火力。',standoff:.60,speed:.85},
@@ -112,6 +113,7 @@ function missionAmmoEmpty(u,t,api){const row=api.getLoadout(u),mission=row?.miss
 export function commandAutomation(s,api){
   if(!s.automation?.started||s.phase!=='running')return;
   for(const u of [...s.units]){
+    if(!missionControlled(u))continue;
     if(u.hp<=0||u.exited)continue;const t=api.types[u.type],air=t.domain==='air';if(!u.ai)order(s,u,'接收任务',api);prepare(s,u,api);
     const own=s.units.filter(v=>v.side===u.side&&v.hp>0&&!v.exited),contacts=knownContacts(s,u,api),doctrine=AI_DOCTRINES[s.automation[u.side+'Doctrine']];
     if(air&&u.flightState==='servicing'){

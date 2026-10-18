@@ -1,5 +1,6 @@
-import {SURFACE_SCENARIOS} from './ww2-scenarios.js?v=0.11.0';
-import {geographicMap,geoToWorld} from './geography.js?v=0.11.0';
+import {missionControlled} from './unit-orders.js?v=0.12.0';
+import {SURFACE_SCENARIOS} from './ww2-scenarios.js?v=0.12.0';
+import {geographicMap,geoToWorld} from './geography.js?v=0.12.0';
 
 export const isSurfaceWW2=s=>Object.hasOwn(SURFACE_SCENARIOS,s.scenario);
 const live=u=>u.hp>0&&!u.exited;
@@ -73,14 +74,14 @@ export function surfaceWW2Order(s,key,api){
 }
 
 function aviationOrders(s,api){
-  const contacts=reports(s,'blue',api),carriers=s.units.filter(u=>u.side==='blue'&&api.types[u.type].ww2Role==='carrier'&&live(u));
+  const contacts=reports(s,'blue',api),carriers=s.units.filter(u=>u.side==='blue'&&api.types[u.type].ww2Role==='carrier'&&live(u)&&missionControlled(u));
   for(const base of carriers){
     for(const type of Object.keys(base.airwing).filter(k=>base.airwing[k]>0)){
       if(api.types[type].ww2Role!=='fighter'&&!contacts.length)continue;
       const r=api.launchDeck(s,base.id,type);if(r.ok){r.unit.autoEngage=api.types[type].ww2Role!=='fighter';r.unit.radar=false;r.unit.esm=false;}break;
     }
   }
-  for(const u of s.units.filter(u=>u.side==='blue'&&api.types[u.type].domain==='air'&&live(u)&&api.airborne(u)&&u.flightState!=='returning')){
+  for(const u of s.units.filter(u=>u.side==='blue'&&api.types[u.type].domain==='air'&&live(u)&&missionControlled(u)&&api.airborne(u)&&u.flightState!=='returning')){
     const t=api.types[u.type],role=t.ww2Role,base=api.unitById(s,u.home?.baseId);
     const c=contacts.filter(c=>!c.disabled).sort((a,b)=>(a.classification==='battleship'?0:1)-(b.classification==='battleship'?0:1)||dist(u,a)-dist(u,b))[Number(u.id.slice(1))%Math.max(1,Math.min(3,contacts.length))];
     const ammo=u.weapons[role==='fighter'?'ir':role==='torpedo'?'torpedo':'bomb'];
@@ -103,6 +104,7 @@ export function commandSurfaceWW2(s,api){
     const own=s.units.filter(u=>u.side===side&&live(u)&&api.types[u.type].domain==='surface'),intel=reports(s,side,api);
     for(const u of own){
       const t=api.types[u.type];
+      if(!missionControlled(u))continue;
       if(side==='blue'&&!plan&&!withdraw&&!attack)continue;
       u.autoEngage=true;
       const ordered=intel.toSorted((a,b)=>(s.scenario==='samar44'?0:(a.classification==='battleship'?0:1)-(b.classification==='battleship'?0:1))||dist(u,a)-dist(u,b)),c=ordered[0];

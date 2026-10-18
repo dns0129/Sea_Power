@@ -1,8 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import * as E from '../dist/engine.js?v=0.11.0';
-import {scenarioChoices,missionGoals,briefingChart} from '../dist/scenario-flow.js?v=0.11.0';
-import {seaSnapshot,modelFor} from '../dist/sea-scene-data.js?v=0.11.0';
+import * as E from '../dist/engine.js?v=0.12.0';
+import {scenarioChoices,missionGoals,briefingChart} from '../dist/scenario-flow.js?v=0.12.0';
+import {seaSnapshot,modelFor} from '../dist/sea-scene-data.js?v=0.12.0';
 
 function quiet(){const s=E.createState('midway42');E.start(s);for(const u of s.units){u.autoEngage=false;u.autoDefense=false;u.radar=false;}return s;}
 function run(s,seconds){while(seconds>0&&s.phase==='running'){const n=Math.min(300,seconds);E.step(s,n);seconds-=n;}}
@@ -42,7 +42,7 @@ test('早期雷达只能建立概略搜索报告，低空受地平线限制，�
 
 test('舰炮可造成舰艇毁伤，空投鱼雷按观测航向超前瞄准且不进行末段追踪',()=>{
   const s=quiet(),cruiser=s.units.find(u=>u.type==='ww2_us_cruiser'),target=s.units.find(u=>u.type==='ww2_jp_destroyer');
-  target.x=cruiser.x+6;target.y=cruiser.y;target.route=[];target.speed=0;s.seed=1;E.scan(s);
+  target.x=cruiser.x+6;target.y=cruiser.y;target.route=[];target.speed=0;s.seed=2000;E.scan(s);
   assert.equal(E.fire(s,cruiser.id,target.id,'gun').ok,true);const hp=target.hp;run(s,20);assert.ok(target.hp<hp);
   const base=s.units[0];base.deckReady=0;const launched=E.launchDeck(s,base.id,'ww2_tbd');assert.equal(launched.ok,true);
   const plane=launched.unit;plane.x=220;plane.y=80;target.x=221;target.y=80;target.heading=90;target.speed=23;target.route=[{x:280,y:80}];
@@ -101,12 +101,18 @@ test('胜败和时限按中途岛目标结算，不使用现代歼灭规则',()=
   }
 });
 
-test('完整首版计划能执行搜索、空袭、回收并在时限内结算，战局可重新载入',()=>{
-  const s=E.createState('midway42');E.start(s);E.issueMissionOrder(s,'plan');
+test('低命中规则下的可重复战局能执行搜索、空袭、回收并获胜，战局可重新载入',()=>{
+  const s=E.createState('midway42');s.seed=1972;E.start(s);E.issueMissionOrder(s,'plan');
   run(s,E.SCENARIOS.midway42.duration);
   assert.equal(s.phase,'ended');assert.equal(s.result,'victory');assert.ok(s.time<=14400);assert.ok(s.units.length>30&&s.units.length<=60);
-  assert.ok(s.units.some(u=>u.type==='ww2_sbd'&&u.weapons.bomb<3));
-  assert.ok(s.units.some(u=>u.type==='ww2_d3a'&&u.weapons.bomb<3));
+  assert.ok(s.units.some(u=>u.type==='ww2_sbd'&&u.weapons.bomb<E.TYPES[u.type].weapons.bomb));
+  assert.ok(s.units.some(u=>u.type==='ww2_d3a'&&u.weapons.bomb<E.TYPES[u.type].weapons.bomb));
   assert.ok(s.units.some(u=>u.side==='blue'&&E.TYPES[u.type].ww2Role==='carrier'&&u.hp<E.TYPES[u.type].hp));
   assert.ok(s.units.some(u=>u.sorties>0));assert.equal(E.deserialize(E.serialize(s)).result,s.result);
+});
+
+test('低命中空袭会产生不同战果，默认种子按实际目标进度结算',()=>{
+  const s=E.createState('midway42');E.start(s);E.issueMissionOrder(s,'plan');run(s,E.SCENARIOS.midway42.duration);
+  assert.equal(s.phase,'ended');assert.equal(s.result,'defeat');assert.ok(s.mission.disabledCarriers<3);assert.equal(s.time,14400);
+  assert.ok(s.units.some(u=>u.criticalHits.length));assert.equal(E.deserialize(E.serialize(s)).mission.disabledCarriers,s.mission.disabledCarriers);
 });

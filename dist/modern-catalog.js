@@ -382,5 +382,6 @@ export function buildModernCatalog(platform){
     t.strengths=t.role==='awacs'?'远程态势与数据链支援':t.role==='tanker'?'延长兼容机型的任务时间':t.domain==='sub'?'水下隐蔽、声呐搜索与伏击':t.deck?'航空队与舰体协同':t.jammer?'电子支援与干扰压制':t.sonar>=35?'反潜搜索与护航':t.radar>=150?'空中态势与防空覆盖':'成本、载荷与任务适配';
     t.limitations=t.tanker?'无攻击武器；需要受油机接口、位置和速度匹配。':t.category==='awacs'?'无攻击武器；暴露和护航需求较高。':t.deck?'甲板放飞有间隔；飞机、在空容量与航空补给均有限。':t.domain==='sub'?'深潜不能持续接收空中数据链；高速会增加噪声。':t.signature<.5?'外部挂载削弱低可探测优势；开雷达仍可被电子支援侦知。':'弹药、航迹、射程与专用任务限制，不能包办所有作战。';
   }
+  for(const t of Object.values(out))if(t.deck&&['carrier','amphibious'].includes(t.category))t.deck.cooldown*=3;
   return out;
 }

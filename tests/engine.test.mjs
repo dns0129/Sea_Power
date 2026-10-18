@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-import {createState,start,step,scan,visibleContacts,fire,fireCheck,setRoute,setSpeed,setAltitude,returnToBase,addUnit,removeUnit,formFleet,serialize,deserialize,checkOutcome,unitById,TYPES,WEAPONS,inLand,clearPath,radarHorizon,sensorRange,missileVisible,maxSpeed} from '../dist/engine.js?v=0.11.0';
+import {createState,start,step,scan,visibleContacts,fire,fireCheck,setRoute,setSpeed,setAltitude,returnToBase,addUnit,removeUnit,formFleet,serialize,deserialize,checkOutcome,unitById,TYPES,WEAPONS,inLand,clearPath,radarHorizon,sensorRange,missileVisible,maxSpeed} from '../dist/engine.js?v=0.12.0';
 
 function quiet(s){for(const u of s.units){u.autoEngage=false;u.autoDefense=false;u.radar=u.sonar=u.esm=false;u.route=[];}return s;}
 function confirm(s,seconds=12){for(let t=0;t<seconds;t+=3){s.time+=3;scan(s);}return s;}

@@ -1,4 +1,4 @@
-import {TYPES,ALTITUDES,SCENARIOS,airborne,visibleContacts,freeDeploy,isAutoBattle,isWW2,landFor,worldFor,factionName,weaponStats,historicalObjectives} from './engine.js?v=0.11.0';
+import {TYPES,ALTITUDES,SCENARIOS,airborne,visibleContacts,freeDeploy,isAutoBattle,isWW2,landFor,worldFor,factionName,weaponStats,historicalObjectives,effectiveSpeed} from './engine.js?v=0.12.0';
 
 // A visual library, independent of simulation types. Replace these GLBs to
 // change the art without changing platform statistics or saved games.
@@ -54,7 +54,8 @@ export function sceneUnit(u){
   const t=TYPES[u.type],model=modelFor(u.type),inAir=airborne(u);
   return {
     id:u.id,name:u.name,type:u.type,typeName:t.name,side:u.side,domain:t.domain,model,
-    x:u.x,y:u.y,heading:u.heading,speed:u.speed,hp:u.hp,maxHp:t.hp,
+    x:u.x,y:u.y,heading:u.heading,speed:effectiveSpeed(u),requestedSpeed:u.speed,hp:u.hp,maxHp:t.hp,
+    commandMode:u.commandMode,commandStatus:u.commandStatus,lockedTarget:u.lockedTarget,dogfightWith:u.dogfightWith,criticalHits:u.criticalHits,
     altitude:inAir?ALTITUDES[u.altitude]?.height||3500:0,
     altitudeName:inAir?ALTITUDES[u.altitude]?.name:'停场',
     height:inAir?({low:1.6,medium:4.5,high:8}[u.altitude]||4.5):0,
@@ -62,7 +63,7 @@ export function sceneUnit(u){
     fuel:t.domain==='air'?Math.max(0,Math.min(100,u.fuel/(t.endurance*60)*100)):null,
     radar:u.radar,sonar:u.sonar,esm:u.esm,datalink:u.datalink,
     smoke:t.smoke?{charges:u.smokeCharges,until:u.smokeUntil,ready:u.smokeReady}:null,radarFireControl:!!t.radarFireControl,
-    description:t.desc,role:t.realRole||t.category||'',ww2:t.era==='ww2',deck:!!t.deck,deckReady:u.deckReady,supply:u.supply,
+    description:t.desc,role:t.realRole||t.category||'',ww2:t.era==='ww2',deck:!!t.deck,deckReady:u.deckReady,launchInterval:t.deck?.cooldown||0,supply:u.supply,
     weapons:Object.entries(u.weapons).filter(([,n])=>n>0).map(([id,count])=>({id,count,name:weaponStats(u,id).name})),
     airwing:Object.entries(u.airwing||{}).filter(([,n])=>n>0).map(([id,count])=>({id,name:TYPES[id]?.name||id,count})),
     contact:false
@@ -90,7 +91,7 @@ export function seaSnapshot(state,{side='blue',all=false}={}){
   const effects=isWW2(state)?state.effects.filter(e=>units.some(u=>Math.hypot(u.x-e.x,u.y-e.y)<12)).map(e=>({x:e.x,y:e.y,time:e.time,kind:e.kind})):[];
   return {units,contacts,world:worldFor(state),land:landFor(state),weather:state.weather,
     scenario:state.scenario,title:SCENARIOS[state.scenario].name,phase:state.phase,
-    paused:state.paused,time:state.time,side,global,
+    paused:state.paused,time:state.time,side,global,canCommand:!isAutoBattle(state)&&side==='blue'&&state.phase!=='ended',
     sideName:factionName(state,side),observer:global?'全局观察':`${factionName(state,side)}视角`,
     projectiles,effects,night:!!SCENARIOS[state.scenario].night,
     smoke:isWW2(state)?(state.smoke||[]).filter(c=>c.until>state.time&&units.some(u=>Math.hypot(u.x-c.x,u.y-c.y)<18)).map(c=>({x:c.x,y:c.y,radius:c.radius,born:c.born,until:c.until})):[],

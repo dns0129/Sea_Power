@@ -2,7 +2,8 @@ import * as THREE from './vendor/three/three.module.js';
 import {OrbitControls} from './vendor/three/addons/controls/OrbitControls.js';
 import {GLTFLoader} from './vendor/three/addons/loaders/GLTFLoader.js';
 import {mergeGeometries} from './vendor/three/addons/utils/BufferGeometryUtils.js';
-import {MODEL_PROFILES} from './sea-scene-data.js?v=0.11.0';
+import {MODEL_PROFILES} from './sea-scene-data.js?v=0.12.0';
+import {unitCommandCard,unitCombatStatus} from './unit-command-ui.js?v=0.12.0';
 
 const safe=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const clock=s=>[Math.floor(s/3600),Math.floor(s/60)%60,Math.floor(s)%60].map(n=>String(n).padStart(2,'0')).join(':');
@@ -111,7 +112,7 @@ function prepareModel(source){
   return group;
 }
 
-export async function createSeaView({root,onSelect,onMap,onPlay,onSpeed,onHome,onBrief,onSave,onError,onMissionOrder=()=>{},onLaunchAircraft=()=>{},onDeploySmoke=()=>{},onProgress=()=>{}}){
+export async function createSeaView({root,onSelect,onMap,onPlay,onSpeed,onHome,onBrief,onSave,onError,onMissionOrder=()=>{},onLaunchAircraft=()=>{},onDeploySmoke=()=>{},onUnitCommand=()=>false,onProgress=()=>{}}){
   root.className='sea-view';root.dataset.details='open';
   root.innerHTML=`<canvas tabindex="0" aria-label="3D 海面：点击舰船或飞机查看详情，左键拖动旋转，右键平移，滚轮缩放；触屏单指旋转、双指缩放。"></canvas>
     <div class="sea-labels"></div>
@@ -176,6 +177,7 @@ export async function createSeaView({root,onSelect,onMap,onPlay,onSpeed,onHome,o
   const ring=new THREE.Mesh(new THREE.RingGeometry(1,1.013,100),ringMaterial);ring.rotation.x=-Math.PI/2;scene.add(ring);
   const selectionLine=new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(),new THREE.Vector3(0,1,0)]),new THREE.LineDashedMaterial({color:'#a3e3ca',dashSize:.13,gapSize:.09,transparent:true,opacity:.5}));selectionLine.computeLineDistances();scene.add(selectionLine);
   let snapshot=null,selectedKey=null,detailTab='status',listTab='fleet',follow=true,fly=null,lastFollow=null;
+  let commandUnitId=null;const targetChoices=new Map();
   let previousLand=null,lastRoster='',lastHead='',lastBody='',lastPanel=0,firstFrame=true,active=false,disposed=false;
   const handlers=new AbortController();
   const resize=()=>{
@@ -222,6 +224,11 @@ export async function createSeaView({root,onSelect,onMap,onPlay,onSpeed,onHome,o
   root.addEventListener('click',event=>{
     const button=event.target.closest('button');if(!button)return;
     event.stopPropagation();
+    if(button.dataset.unitControl){onUnitCommand(button.dataset.controlUnit,button.dataset.unitControl);lastBody='';return;}
+    if(button.dataset.unitLock){
+      const id=button.dataset.unitLock,c=button.dataset.lockContact||root.querySelector(`[data-lock-choice="${id}"]`)?.value||targetChoices.get(id);
+      if(onUnitCommand(id,'follow',c)){selectedKey=id;lastHead=lastBody='';}return;
+    }
     if(button.dataset.seaUnit){select(button.dataset.seaUnit);return;}
     if(button.dataset.seaOrder){onMissionOrder(button.dataset.seaOrder);lastPanel=0;return;}
     if(button.dataset.seaSmoke){onDeploySmoke(button.dataset.seaSmoke);lastBody='';return;}
@@ -244,6 +251,7 @@ export async function createSeaView({root,onSelect,onMap,onPlay,onSpeed,onHome,o
     if(['closeup','close-details','details'].includes(action))resize();
   },{signal:handlers.signal});
   $('[data-sea-speed]').addEventListener('change',event=>onSpeed(Number(event.target.value)),{signal:handlers.signal});
+  root.addEventListener('change',event=>{if(event.target.dataset.lockChoice){targetChoices.set(event.target.dataset.lockChoice,event.target.value);event.stopPropagation();}},{signal:handlers.signal});
   let pointerStart=null;
   canvas.addEventListener('pointerdown',event=>{if(event.isPrimary&&event.button===0)pointerStart={x:event.clientX,y:event.clientY,id:event.pointerId};else pointerStart=null;},{signal:handlers.signal});
   canvas.addEventListener('pointercancel',()=>{pointerStart=null;},{signal:handlers.signal});
@@ -318,7 +326,7 @@ export async function createSeaView({root,onSelect,onMap,onPlay,onSpeed,onHome,o
     for(const e of snapshot.effects||[]){
       const id=`${e.time}:${e.x}:${e.y}`,age=snapshot.time-e.time;if(age>12)continue;
       visible.add(id);let splash=splashes.get(id);
-      if(!splash){splash=new THREE.Mesh(splashGeometry,splashMaterials[e.kind==='hit'?'hit':'miss']);splash.rotation.x=-Math.PI/2;scene.add(splash);splashes.set(id,splash);}
+      if(!splash){splash=new THREE.Mesh(splashGeometry,splashMaterials[e.kind==='hit'||e.kind==='critical'?'hit':'miss']);splash.rotation.x=-Math.PI/2;scene.add(splash);splashes.set(id,splash);}
       splash.position.set(e.x,.13,e.y);splash.scale.setScalar(1+age*.13);
     }
     for(const [id,mesh] of splashes)if(!visible.has(id)){scene.remove(mesh);splashes.delete(id);}
@@ -361,16 +369,16 @@ export async function createSeaView({root,onSelect,onMap,onPlay,onSpeed,onHome,o
   }
   function statusBody(u){
     const stat=(label,value,unit='')=>`<div><dt>${label}</dt><dd>${safe(value)}<small>${unit}</small></dd></div>`;
-    if(u.contact)return `<h3>${u.stale?'最后已知接触':'侦察接触'}</h3><p>来源：${safe(u.source)}<br>航迹：${u.quality==='track'?'有效跟踪':u.quality==='class'?'已分类':'待确认'}<br>距上次观测：${Math.floor(u.age)} 秒</p><dl class="sea-stats">${stat('已知 X',u.x.toFixed(1),'nm')}${stat('已知 Y',u.y.toFixed(1),'nm')}</dl><p>单位型号、装备与损伤尚未确认。位置随当前视角的侦察情报更新。</p>`;
+    if(u.contact)return `${snapshot.canCommand&&commandUnitId?`<section class="unit-command-card"><p>由 ${safe(snapshot.units.find(v=>v.id===commandUnitId)?.name)} 执行</p><button class="unit-lock-button" data-unit-lock="${safe(commandUnitId)}" data-lock-contact="${safe(u.id)}">锁定并跟随此目标</button></section>`:''}<h3>${u.stale?'最后已知接触':'侦察接触'}</h3><p>来源：${safe(u.source)}<br>航迹：${u.quality==='track'?'有效跟踪':u.quality==='class'?'已分类':'待确认'}<br>距上次观测：${Math.floor(u.age)} 秒</p><dl class="sea-stats">${stat('已知 X',u.x.toFixed(1),'nm')}${stat('已知 Y',u.y.toFixed(1),'nm')}</dl><p>单位型号、装备与损伤尚未确认。位置随当前视角的侦察情报更新。</p>`;
     let rows=stat('航速',Math.round(u.speed),'kn')+stat('航向',Math.round(u.heading),'°');
     if(u.domain==='air')rows+=stat('高度',u.altitude.toLocaleString(),'m')+stat('燃油',Math.round(u.fuel),'%');
     else rows+=stat('海图 X',u.x.toFixed(1),'nm')+stat('海图 Y',u.y.toFixed(1),'nm');
     const sensors=u.ww2?[['radar','早期雷达'],['datalink','无线电']]:[['radar','雷达'],['sonar','声呐'],['esm','电子支援'],['datalink','数据链']];
-    return `<div class="sea-health-heading"><span>结构完整度</span><b>${Math.round(u.hp/u.maxHp*100)}%</b></div><div class="sea-health-track"><i style="width:${Math.max(0,Math.min(100,u.hp/u.maxHp*100))}%"></i></div><dl class="sea-stats">${rows}</dl><div class="sea-sensors">${sensors.map(([key,label])=>`<span class="${u[key]?'on':''}">${label} ${u[key]?'开':'关'}</span>`).join('')}${u.ww2?'<span class="on">目视搜索</span>':''}</div>${u.radarFireControl?'<p>舰炮雷达火控：需要本舰连续跟踪，烟幕不阻断雷达测距。</p>':''}${u.smoke?`<p>烟幕余量 ${u.smoke.charges} 次 · ${u.smoke.until>snapshot.time?'正在施放':u.smoke.ready>snapshot.time?`准备 ${Math.ceil(u.smoke.ready-snapshot.time)} 秒`:'设备就绪'}</p><button class="sea-plan" data-sea-smoke="${safe(u.id)}" ${snapshot.phase!=='running'||!u.smoke.charges||u.smoke.ready>snapshot.time?'disabled':''}>施放烟幕</button>`:''}${u.domain==='sub'?`<p>潜航状态：${u.depth==='periscope'?'潜望深度':'深潜'} · 模型在海面作位置示意</p>`:''}${u.domain==='air'?`<p>飞行状态：${u.inAir?u.altitudeName:u.flightState==='servicing'?'整备中':'停场'}</p>`:''}<p>${safe(u.description)}</p>`;
+    return `${unitCombatStatus(u)}${unitCommandCard(u,{contacts:snapshot.contacts,choice:targetChoices.get(u.id),disabled:!snapshot.canCommand||u.side!==snapshot.side,phase:snapshot.phase})}<div class="sea-health-heading"><span>结构完整度</span><b>${Math.round(u.hp/u.maxHp*100)}%</b></div><div class="sea-health-track"><i style="width:${Math.max(0,Math.min(100,u.hp/u.maxHp*100))}%"></i></div><dl class="sea-stats">${rows}</dl><div class="sea-sensors">${sensors.map(([key,label])=>`<span class="${u[key]?'on':''}">${label} ${u[key]?'开':'关'}</span>`).join('')}${u.ww2?'<span class="on">目视搜索</span>':''}</div>${u.radarFireControl?'<p>舰炮雷达火控：需要本舰连续跟踪，烟幕不阻断雷达测距。</p>':''}${u.smoke?`<p>烟幕余量 ${u.smoke.charges} 次 · ${u.smoke.until>snapshot.time?'正在施放':u.smoke.ready>snapshot.time?`准备 ${Math.ceil(u.smoke.ready-snapshot.time)} 秒`:'设备就绪'}</p><button class="sea-plan" data-sea-smoke="${safe(u.id)}" ${snapshot.phase!=='running'||!u.smoke.charges||u.smoke.ready>snapshot.time?'disabled':''}>施放烟幕</button>`:''}${u.domain==='sub'?`<p>潜航状态：${u.depth==='periscope'?'潜望深度':'深潜'} · 模型在海面作位置示意</p>`:''}${u.domain==='air'?`<p>飞行状态：${u.inAir?u.altitudeName:u.flightState==='servicing'?'整备中':'停场'}</p>`:''}<p>${safe(u.description)}</p>`;
   }
   function equipmentBody(u){
     if(u.contact)return '<p>尚未获得该接触的装备情报。</p>';
-    return `<h3>当前武器与余量</h3>${u.weapons.length?u.weapons.map(w=>`<div class="sea-weapon"><span>${safe(w.name)}</span><b>${w.count}</b></div>`).join(''):'<p>当前无可用武器。</p>'}${u.airwing.length?`<h3>${u.ww2?'待出动航空小队':'待出动舰载机'}</h3>${u.airwing.map(w=>`<div class="sea-weapon"><span>${safe(w.name)}</span><b>${w.count}</b>${u.ww2&&u.side==='blue'?`<button class="sea-launch" data-sea-launch="${safe(w.id)}" data-sea-base="${safe(u.id)}" ${snapshot.phase!=='running'||u.hp<u.maxHp*.4||u.deckReady>snapshot.time?'disabled':''}>放飞</button>`:''}</div>`).join('')}`:''}${u.ww2&&u.deck?`<p>${u.deckReady>snapshot.time?`甲板准备 ${Math.ceil(u.deckReady-snapshot.time)} 秒`:'可放飞'} · 航空补给 ${Math.floor(u.supply)} 点</p>`:''}<p>${u.ww2?'每个航空单位代表缩编小队。攻击批次与外观挂载均为玩法抽象；回收后十分钟整备。':'装备与弹药读取当前战局；通用模型的外观挂载仅作示意。使用战术海图进行挂载、起飞与作战操作。'}</p>`;
+    return `<h3>当前武器与余量</h3>${u.weapons.length?u.weapons.map(w=>`<div class="sea-weapon"><span>${safe(w.name)}</span><b>${w.count}</b></div>`).join(''):'<p>当前无可用武器。</p>'}${u.airwing.length?`<h3>${u.ww2?'待出动航空小队':'待出动舰载机'}</h3>${u.airwing.map(w=>`<div class="sea-weapon"><span>${safe(w.name)}</span><b>${w.count}</b>${u.ww2&&u.side==='blue'?`<button class="sea-launch" data-sea-launch="${safe(w.id)}" data-sea-base="${safe(u.id)}" ${snapshot.phase!=='running'||u.hp<u.maxHp*.4||u.deckReady>snapshot.time?'disabled':''}>放飞</button>`:''}</div>`).join('')}`:''}${u.ww2&&u.deck?`<p>${u.deckReady>snapshot.time?`甲板准备 ${Math.ceil(u.deckReady-snapshot.time)} 秒`:'可放飞'} · 放飞间隔 ${u.launchInterval} 秒 · 航空补给 ${Math.floor(u.supply)} 点</p>`:''}<p>${u.ww2?'每个航空单位代表缩编小队。攻击批次与外观挂载均为玩法抽象；回收后十分钟整备。':'装备与弹药读取当前战局；通用模型的外观挂载仅作示意。使用战术海图进行挂载、起飞与作战操作。'}</p>`;
   }
   function modelBody(u){
     if(u.contact)return '<p>接触使用情报标记，确认前不显示具体舰船或战机模型。</p>';
@@ -404,8 +412,8 @@ export async function createSeaView({root,onSelect,onMap,onPlay,onSpeed,onHome,o
       $('.sea-details-head').innerHTML=`<button class="sea-close" data-sea-action="close-details" aria-label="收起单位详情">×</button>${u?`<small>${u.contact?'侦察接触':`${u.side==='blue'?'蓝方':'红方'} / ${domainName[u.domain]}`}</small><h2>${safe(u.name)}</h2><p>${safe(u.contact?'未确认单位':u.typeName)}</p>`:'<h2>海面观察</h2><p>点击舰船或战机查看详情</p>'}`;
       root.dataset.selection=u?.id||'';
     }
-    const bodySignature=JSON.stringify([detailTab,u&&(detailTab==='model'?[u.id,u.model]:detailTab==='equipment'?[u.id,u.weapons,u.airwing,u.ww2?Math.ceil(Math.max(0,u.deckReady-snapshot.time)):0,snapshot.phase]:[u.id,u.hp,Math.round(u.speed),Math.round(u.heading),Math.round(u.fuel),u.altitude,u.radar,u.sonar,u.esm,u.datalink,u.flightState,u.depth,u.smoke?.charges,Math.ceil(Math.max(0,(u.smoke?.ready||0)-snapshot.time)),Math.floor(u.x*10),Math.floor(u.y*10),u.stale,Math.floor(u.age)])]);
-    if(lastBody!==bodySignature){lastBody=bodySignature;$('.sea-detail-content').innerHTML=u?(detailTab==='status'?statusBody(u):detailTab==='equipment'?equipmentBody(u):modelBody(u)):'<p>使用左侧编队列表定位单位，或在海面直接点击模型。</p>';}
+    const bodySignature=JSON.stringify([detailTab,snapshot.phase,snapshot.canCommand,commandUnitId,u&&(detailTab==='model'?[u.id,u.model]:detailTab==='equipment'?[u.id,u.weapons,u.airwing,u.ww2?Math.ceil(Math.max(0,u.deckReady-snapshot.time)):0,snapshot.phase]:[u.id,u.hp,u.commandMode,u.commandStatus,u.lockedTarget,u.dogfightWith,u.criticalHits,snapshot.contacts.map(c=>[c.id,c.name,c.stale]),targetChoices.get(u.id),Math.round(u.speed),Math.round(u.heading),Math.round(u.fuel),u.altitude,u.radar,u.sonar,u.esm,u.datalink,u.flightState,u.depth,u.smoke?.charges,Math.ceil(Math.max(0,(u.smoke?.ready||0)-snapshot.time)),Math.floor(u.x*10),Math.floor(u.y*10),u.stale,Math.floor(u.age)])]);
+    if(lastBody!==bodySignature&&!document.activeElement?.hasAttribute('data-lock-choice')){lastBody=bodySignature;$('.sea-detail-content').innerHTML=u?(detailTab==='status'?statusBody(u):detailTab==='equipment'?equipmentBody(u):modelBody(u)):'<p>使用左侧编队列表定位单位，或在海面直接点击模型。</p>';}
     root.querySelectorAll('[data-sea-tab]').forEach(b=>b.classList.toggle('active',b.dataset.seaTab===detailTab));
     $('.sea-clock-block time').textContent=clock(snapshot.time);
     const phase=snapshot.phase==='setup'?'部署阶段':snapshot.phase==='ended'?'推演结束':snapshot.paused?'推演暂停':'实时推演';
@@ -414,7 +422,7 @@ export async function createSeaView({root,onSelect,onMap,onPlay,onSpeed,onHome,o
     if(speed!==undefined)$('[data-sea-speed]').value=String(speed);
   }
   function render(next,{selected,target,speed},now,dt){
-    if(disposed)return;snapshot=next;
+    if(disposed)return;snapshot=next;if(snapshot.units.some(u=>u.id===selected&&u.side===snapshot.side))commandUnitId=selected;
     if(previousLand!==snapshot.land){previousLand=snapshot.land;buildLand(snapshot.land);}
     const requested=target&&snapshot.contacts.some(u=>u.id===target)?target:selected;
     const visible=allItems(),nextKey=visible.find(u=>u.id===requested)?.id||visible.find(u=>u.side===snapshot.side)?.id||visible[0]?.id||null;
@@ -442,7 +450,7 @@ export async function createSeaView({root,onSelect,onMap,onPlay,onSpeed,onHome,o
     renderer.render(scene,camera);projectLabels();root.dataset.ready='true';
   }
   function setActive(value){active=value;if(active){resize();lastPanel=0;canvas.focus({preventScroll:true});}}
-  function reset(){selectedKey=null;previousLand=null;lastHead=lastBody=lastRoster='';firstFrame=true;lastFollow=null;fly=null;root.dataset.details='open';for(const id of actors.keys())removeActor(id);for(const o of [...rounds.values(),...splashes.values()])scene.remove(o);rounds.clear();splashes.clear();smokeMesh.count=0;}
+  function reset(){selectedKey=null;commandUnitId=null;targetChoices.clear();previousLand=null;lastHead=lastBody=lastRoster='';firstFrame=true;lastFollow=null;fly=null;root.dataset.details='open';for(const id of actors.keys())removeActor(id);for(const o of [...rounds.values(),...splashes.values()])scene.remove(o);rounds.clear();splashes.clear();smokeMesh.count=0;}
   function dispose(){
     if(disposed)return;disposed=true;handlers.abort();resizeObserver.disconnect();controls.dispose();
     for(const id of actors.keys())removeActor(id);
