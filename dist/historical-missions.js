@@ -1,7 +1,8 @@
-import {missionControlled} from './unit-orders.js?v=0.12.0';
-import {isWW2Scenario} from './ww2-data.js?v=0.12.0';
-import {initializeWW2,ww2Order,ww2Objectives,updateWW2,ww2Zone,ww2Search} from './ww2-missions.js?v=0.12.0';
-import {REAL_MAPS,geoToWorld} from './geography.js?v=0.12.0';
+import {missionControlled} from './unit-orders.js?v=0.13.0';
+import {isWW2Scenario} from './ww2-data.js?v=0.13.0';
+import {initializeWW2,ww2Order,ww2Objectives,updateWW2,ww2Zone,ww2Search} from './ww2-missions.js?v=0.13.0';
+import {REAL_MAPS,geoToWorld} from './geography.js?v=0.13.0';
+import {playerSide,playerOutcome} from './factions.js?v=0.13.0';
 export const HISTORICAL_SCENARIOS={
   bubiyan91:{name:'布比延封锁线',subtitle:'1991 · 海湾战争 · 拦截撤退',mapId:'bubiyan',budget:0,historical:true,date:'1991-01-29—31',duration:1800,difficulty:'入门',
     brief:'指挥舰载直升机与攻击机，在东侧脱离线之前击沉至少 3 艘撤退舰艇；最多允许 1 艘脱离。点击“执行拦截”让航空队进入搜索区，海上兵力负责掩护。任务限时 30 分钟。',
@@ -70,9 +71,15 @@ export function initializeHistorical(s,api){
   s.budget=s.redBudget=0;
   api.log(s,'历史任务已载入。查看目标与历史说明后开始；可随时暂停下令。');
 }
-export function historicalOrder(s,key,api){
+export function historicalOrder(s,key,api,side=playerSide(s)){
   if(isWW2Scenario(s))return ww2Order(s,key,api);
   const spec=HISTORICAL_SCENARIOS[s.scenario];if(!spec||s.phase!=='running')return {ok:false,error:'请先开始历史任务'};
+  if(side==='red'){
+    if(!['intercept','strike','escort','withdraw','defend'].includes(key))return {ok:false,error:'任务指令无效'};
+    const own=s.units.filter(u=>u.side==='red'&&u.hp>0&&!u.exited),anchor=own.find(u=>u.missionRole==='mainTarget');
+    for(const u of own){u.autoEngage=true;if(u.missionRole==='escape'||s.scenario==='sanCarlos82'){const route=api.route(s,u,missionZone(s));if(route)u.route=route;}else if(anchor&&u!==anchor)u.route=api.route(s,u,anchor)||u.route;}
+    api.log(s,'本方执行撤离／阻击任务，舰机按已知任务区域行动。');return {ok:true};
+  }
   if(![spec.orderKey,'withdraw'].includes(key)||key==='withdraw'&&(s.scenario!=='mantis88'||!s.mission.disabled))return {ok:false,error:'当前阶段无法执行该指令'};
   const goal=key==='withdraw'?missionZone(s):missionSearch(s);let count=0,escortIndex=0;
   for(const u of s.units.filter(u=>u.side==='blue'&&u.hp>0&&!u.exited&&missionControlled(u)&&u.missionRole!=='transport')){
@@ -87,6 +94,11 @@ export function historicalObjectives(s){
   if(isWW2Scenario(s))return ww2Objectives(s);
   if(!s.mission)return [];
   const m=s.mission,zone=missionZone(s),dist=u=>Math.hypot(u.x-zone.x,u.y-zone.y);
+  if(playerSide(s)==='red'){
+    if(s.scenario==='bubiyan91')return [{text:`至少两艘舰艇脱离 ${m.escaped.length} / 2`,done:m.escaped.length>=2},{text:'或坚持至时限，阻止对方击沉三艘舰艇',done:s.phase==='ended'&&s.result==='victory'}];
+    if(s.scenario==='mantis88')return [{text:'保护萨汉德号，阻止打击与撤离目标同时完成',failed:s.phase==='ended'&&s.result==='defeat'},{text:'击沉敌方指挥舰，或坚持至任务时限',done:s.phase==='ended'&&s.result==='victory'}];
+    return [{text:'击沉至少一艘运输船，或阻止卸载直至时限',done:s.phase==='ended'&&s.result==='victory'},{text:`攻击波已到达 ${m.waves.length} / 3`,done:m.waves.length===3}];
+  }
   if(s.scenario==='bubiyan91'){const sunk=s.units.filter(u=>u.missionRole==='escape'&&u.hp<=0).length;return [{text:`击沉撤退舰艇 ${sunk} / 3`,done:sunk>=3},{text:`脱离舰艇 ${m.escaped.length} / 最多 1`,failed:m.escaped.length>=2,done:s.phase==='ended'&&s.result==='victory'}];}
   if(s.scenario==='mantis88'){const flag=s.units.find(u=>u.missionRole==='flagship');return [{text:'使萨汉德号结构降至 40% 以下',done:m.disabled},{text:'水面指挥舰抵达东侧撤离区',done:!!flag&&flag.hp>0&&dist(flag)<=zone.radius}];}
   const transports=s.units.filter(u=>u.missionRole==='transport'),inside=transports.filter(u=>u.hp>0&&dist(u)<=zone.radius).length;
@@ -99,16 +111,16 @@ export function updateHistorical(s,dt,api){
   for(const wave of spec.waves||[])if(s.time>=wave.time&&!m.waves.includes(wave.id)){
     m.waves.push(wave.id);for(let i=0;i<wave.count;i++){
       const p=geoToWorld(REAL_MAPS[spec.mapId],...wave.positions[i]),u=api.spawn(s,wave.type,'red',p.x,p.y);
-      Object.assign(u,{name:`来袭攻击组 ${m.waves.length}-${i+1}`,missionRole:'raider',autoEngage:true,radar:false,altitude:'low',speed:420,home:{...p,baseId:null}});
+      Object.assign(u,{name:`来袭攻击组 ${m.waves.length}-${i+1}`,missionRole:'raider',autoEngage:playerSide(s)!=='red',radar:false,altitude:'low',speed:420,home:{...p,baseId:null}});
       u.route=[geoToWorld(REAL_MAPS[spec.mapId],...wave.destination)];
     }s.redBudget=0;api.log(s,wave.message,'warning');
   }
   for(const u of s.units.filter(u=>u.missionRole==='escape'&&u.hp>0&&!u.exited&&inside(u))){u.exited=true;u.route=[];m.escaped.push(u.id);for(const side of ['blue','red'])delete s.contacts[side][u.id];api.log(s,'一艘目标穿过东侧任务脱离线。','warning');}
   for(const u of s.units.filter(u=>u.missionRole==='raider'&&!u.exited&&['servicing','grounded'].includes(u.flightState))){u.exited=true;u.flightState='grounded';u.route=[];for(const side of ['blue','red'])delete s.contacts[side][u.id];}
   const finish=(result,reason)=>{
-    s.phase='ended';s.paused=true;s.result=result;m.reason=reason;
+    s.phase='ended';s.paused=true;s.result=playerOutcome(s,result);m.reason=playerSide(s)==='red'?`对方任务：${reason}`:reason;
     const blue=s.units.filter(u=>u.side==='blue'),health=blue.reduce((sum,u)=>sum+u.hp/api.types[u.type].hp,0)/blue.length;
-    m.score=result==='victory'?Math.round(60+20*health+20*Math.max(0,1-s.time/spec.duration)):Math.round(30*health);
+    m.score=s.result==='victory'?Math.round(60+20*(playerSide(s)==='blue'?health:1-health)+20*Math.max(0,1-s.time/spec.duration)):Math.round(30*(playerSide(s)==='blue'?health:1-health));
     api.log(s,reason,result==='victory'?'combat':'warning');
   };
   if(s.scenario==='bubiyan91'){
@@ -126,4 +138,17 @@ export function updateHistorical(s,dt,api){
   }
   if(!s.units.some(u=>u.side==='blue'&&u.hp>0&&!u.exited))return finish('defeat','本方兵力全部损失。');
   if(s.time>=spec.duration)return finish('defeat','任务时间耗尽，主要目标未完成。');
+}
+
+// 红方玩家进入历史任务后，原蓝方按公开任务目标推进，空中拦截只读蓝方报告。
+export function commandHistorical(s,api){
+  if(playerSide(s)!=='red'||s.phase!=='running'||isWW2Scenario(s))return;
+  const m=s.mission,key=s.scenario==='mantis88'&&m.disabled?'withdraw':HISTORICAL_SCENARIOS[s.scenario].orderKey;
+  if(!m.orders.includes(key))historicalOrder(s,key,api,'blue');
+  for(const u of s.units.filter(u=>u.side==='blue'&&u.hp>0&&!u.exited)){
+    u.autoEngage=true;
+    if(api.types[u.type].domain!=='air'||u.flightState!=='airborne')continue;
+    const c=api.visibleContacts(s,'blue').filter(c=>!c.stale&&c.domain==='air').sort((a,b)=>Math.hypot(a.x-u.x,a.y-u.y)-Math.hypot(b.x-u.x,b.y-u.y))[0];
+    if(c)u.route=[{x:c.x,y:c.y}];
+  }
 }

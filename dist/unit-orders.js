@@ -1,6 +1,6 @@
 // Unit commands use received observations and public geography. Enemy unit
 // coordinates are never used to choose a course or an interception point.
-export const missionControlled=u=>!u.commandMode||u.commandMode==='mission';
+export const missionControlled=u=>!u.commandMode||['mission','auto'].includes(u.commandMode);
 const live=u=>u.hp>0&&!u.exited;
 const dist=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
 export const fighterType=t=>t.domain==='air'&&!t.rotary&&!t.support&&(t.ww2Role==='fighter'||t.era!=='ww2'&&(['fighter','navalAir'].includes(t.category)||['MRF','INT','ASF','LOF','CVF'].includes(t.code)));

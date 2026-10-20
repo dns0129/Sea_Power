@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import * as E from '../dist/engine.js?v=0.12.0';
+import * as E from '../dist/engine.js?v=0.13.0';
 
 const naval=(name='反舰与自卫')=>({name,mission:'naval',weapons:{aam:2,ir:2,asm:2}});
 const raw=s=>JSON.parse(E.serialize(s));
@@ -124,7 +124,7 @@ test('出动方案拒绝甲板不兼容与无武装自定义，错误配置不�
 
 test('v7 导入校验自定义任务弹药、挂载引用和舰载机方案',()=>{
   const s=empty(),air=add(s,'fa18e'),base=add(s,'cvn_ford','blue',80,90);apply(s,air,naval());assert.ok(E.setDeckLoadout(s,base.id,'fa18e',naval()).ok);
-  const original=raw(s);assert.equal(original.version,7);
+  const original=raw(s);assert.equal(original.version,9);
   for(const mutate of [
     r=>r.units[0].customLoadout=null,
     r=>r.units[0].weapons.asm=3,
@@ -141,7 +141,7 @@ test('v7 导入校验自定义任务弹药、挂载引用和舰载机方案',()=
 test('v6 旧存档升级补齐挂载字段并保留 250 公里原阵位',()=>{
   const s=E.createAutoBattle('surface'),value=raw(s);value.version=6;
   for(const u of value.units){delete u.customLoadout;delete u.wingLoadouts;}
-  const back=load(value);assert.equal(back.version,7);assert.equal(back.mapId,'uscn250');
+  const back=load(value);assert.equal(back.version,9);assert.equal(back.mapId,'uscn250');
   assert.deepEqual(back.units.map(u=>[u.id,u.type,u.x,u.y,u.weapons]),s.units.map(u=>[u.id,u.type,u.x,u.y,u.weapons]));
   for(const u of back.units){assert.equal(u.customLoadout,null);assert.deepEqual(u.wingLoadouts,{});}
 });

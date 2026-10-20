@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import * as E from '../dist/engine.js?v=0.12.0';
-import {criticalImpact} from '../dist/ww2-damage.js?v=0.12.0';
+import * as E from '../dist/engine.js?v=0.13.0';
+import {criticalImpact} from '../dist/ww2-damage.js?v=0.13.0';
 
 test('炸弹、鱼雷和大口径炮命中关键部位会使完整舰艇重伤，普通命中伤害较小',()=>{
   for(const [weapon,type] of [['bomb','ww2_sbd'],['torpedo','ww2_tbd'],['gun','ww2_washington']]){

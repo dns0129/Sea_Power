@@ -1,14 +1,14 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import * as E from '../dist/engine.js?v=0.12.0';
-import {scenarioChoices,missionGoals,briefingChart} from '../dist/scenario-flow.js?v=0.12.0';
-import {seaSnapshot,modelFor} from '../dist/sea-scene-data.js?v=0.12.0';
+import * as E from '../dist/engine.js?v=0.13.0';
+import {scenarioChoices,missionGoals,briefingChart} from '../dist/scenario-flow.js?v=0.13.0';
+import {seaSnapshot,modelFor} from '../dist/sea-scene-data.js?v=0.13.0';
 
 function quiet(){const s=E.createState('midway42');E.start(s);for(const u of s.units){u.autoEngage=false;u.autoDefense=false;u.radar=false;}return s;}
 function run(s,seconds){while(seconds>0&&s.phase==='running'){const n=Math.min(300,seconds);E.step(s,n);seconds-=n;}}
 
 test('二战入口独立于现代历史任务与沙盘，简报覆盖目标且不泄露敌舰阵位',()=>{
-  assert.deepEqual(new Set(scenarioChoices('ww2').map(c=>c.id)),new Set(['midway42','denmark41','guadalcanal42','samar44']));
+  assert.deepEqual(new Set(scenarioChoices('ww2').map(c=>c.id)),new Set(['midway42','denmark41','guadalcanal42','samar44','ww2sandbox']));
   assert.ok(![...scenarioChoices('history'),...scenarioChoices('sandbox')].some(c=>c.id==='midway42'));
   const s=E.createState('midway42');assert.equal(E.isHistorical(s),true);assert.equal(E.freeDeploy(s),false);
   assert.match(JSON.stringify(missionGoals(s)),/三艘/);
@@ -107,7 +107,7 @@ test('低命中规则下的可重复战局能执行搜索、空袭、回收并�
   assert.equal(s.phase,'ended');assert.equal(s.result,'victory');assert.ok(s.time<=14400);assert.ok(s.units.length>30&&s.units.length<=60);
   assert.ok(s.units.some(u=>u.type==='ww2_sbd'&&u.weapons.bomb<E.TYPES[u.type].weapons.bomb));
   assert.ok(s.units.some(u=>u.type==='ww2_d3a'&&u.weapons.bomb<E.TYPES[u.type].weapons.bomb));
-  assert.ok(s.units.some(u=>u.side==='blue'&&E.TYPES[u.type].ww2Role==='carrier'&&u.hp<E.TYPES[u.type].hp));
+  assert.ok(s.units.some(u=>E.TYPES[u.type].domain==='air'&&u.hp<E.TYPES[u.type].hp));
   assert.ok(s.units.some(u=>u.sorties>0));assert.equal(E.deserialize(E.serialize(s)).result,s.result);
 });
 

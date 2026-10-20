@@ -1,6 +1,7 @@
-import {missionControlled} from './unit-orders.js?v=0.12.0';
-import {SURFACE_SCENARIOS} from './ww2-scenarios.js?v=0.12.0';
-import {geographicMap,geoToWorld} from './geography.js?v=0.12.0';
+import {playerSide,playerOutcome} from './factions.js?v=0.13.0';
+import {missionControlled} from './unit-orders.js?v=0.13.0';
+import {SURFACE_SCENARIOS} from './ww2-scenarios.js?v=0.13.0';
+import {geographicMap,geoToWorld} from './geography.js?v=0.13.0';
 
 export const isSurfaceWW2=s=>Object.hasOwn(SURFACE_SCENARIOS,s.scenario);
 const live=u=>u.hp>0&&!u.exited;
@@ -64,10 +65,10 @@ export function surfaceWW2Order(s,key,api){
   if(s.phase!=='running')return {ok:false,error:'请先开始二战任务'};
   if(!['plan','intercept','withdraw','smoke','strike','manual'].includes(key))return {ok:false,error:'本剧本没有此项指令'};
   if(key==='smoke'){
-    let count=0;for(const u of s.units.filter(u=>u.side==='blue'&&live(u)&&api.types[u.type].smoke))if(api.deploySmoke(s,u.id).ok)count++;
+    let count=0;for(const u of s.units.filter(u=>u.side===playerSide(s)&&live(u)&&api.types[u.type].smoke))if(api.deploySmoke(s,u.id).ok)count++;
     return count?{ok:true}:{ok:false,error:'烟幕尚未就绪或已用尽'};
   }
-  if(key==='strike'&&!reports(s,'blue',api).length)return {ok:false,error:'尚无敌舰报告，航空队需要先建立目视接触'};
+  if(key==='strike'&&!reports(s,playerSide(s),api).length)return {ok:false,error:'尚无敌舰报告，航空队需要先建立目视接触'};
   s.mission.orders=key==='manual'?[]:[key];
   api.log(s,key==='manual'?'已转为手动指挥，保留当前航线。':`已下达${key==='plan'?'作战计划':key==='withdraw'?'撤离':'拦截／航空反击'}指令。`);
   commandSurfaceWW2(s,api);return {ok:true};
@@ -105,7 +106,7 @@ export function commandSurfaceWW2(s,api){
     for(const u of own){
       const t=api.types[u.type];
       if(!missionControlled(u))continue;
-      if(side==='blue'&&!plan&&!withdraw&&!attack)continue;
+      if(side===playerSide(s)&&!plan&&!withdraw&&!attack)continue;
       u.autoEngage=true;
       const ordered=intel.toSorted((a,b)=>(s.scenario==='samar44'?0:(a.classification==='battleship'?0:1)-(b.classification==='battleship'?0:1))||dist(u,a)-dist(u,b)),c=ordered[0];
       if(side==='red'){
@@ -119,7 +120,7 @@ export function commandSurfaceWW2(s,api){
         }else if(c)closeOn(s,u,c,t.ww2Role==='battleship'?10:5,api);
         continue;
       }
-      if(withdraw){
+      if(withdraw&&playerSide(s)==='blue'){
         const p=s.scenario==='guadalcanal42'?{x:39,y:27}:s.scenario==='denmark41'?{x:25,y:56}:gate;
         route(s,u,p,api);continue;
       }
@@ -137,12 +138,12 @@ export function commandSurfaceWW2(s,api){
       }else route(s,u,geoToWorld(geographicMap(s),...spec.search),api);
     }
   }
-  if(s.scenario==='samar44'&&(plan||s.mission.orders.includes('strike')))aviationOrders(s,api);
+  if(s.scenario==='samar44'&&(playerSide(s)==='red'||plan||s.mission.orders.includes('strike')))aviationOrders(s,api);
   const seen=reports(s,'blue',api).length;
   s.mission.stage=plan||attack||withdraw?s.scenario==='samar44'?'烟幕与航空兵掩护 · 航母向南撤离':seen?'接触已建立 · 按报告组织炮战':'搜索接敌 · 无线电共享最后报告':'等待指挥 · 可逐舰设置航线与自动交战';
 }
 
-function finish(s,result,reason,score,api){s.phase='ended';s.paused=true;s.result=result;s.mission.reason=reason;s.mission.score=Math.round(Math.max(0,Math.min(100,score)));api.log(s,reason,result==='victory'?'combat':'warning');}
+function finish(s,result,reason,score,api){s.phase='ended';s.paused=true;s.result=playerOutcome(s,result);s.mission.reason=playerSide(s)==='red'?'对方任务：'+reason:reason;s.mission.score=Math.round(Math.max(0,Math.min(100,playerSide(s)==='red'?100-score:score)));api.log(s,reason,result==='victory'?'combat':'warning');}
 export function updateSurfaceWW2(s,dt,api){
   const m=s.mission,spec=SURFACE_SCENARIOS[s.scenario];m.activeBattleships=activeBB(s,api);
   if(s.scenario==='denmark41'){
@@ -168,6 +169,7 @@ export function updateSurfaceWW2(s,dt,api){
 
 export function surfaceWW2Objectives(s){
   const m=s.mission,win=s.phase==='ended'&&s.result==='victory';
+  if(playerSide(s)==='red')return SURFACE_SCENARIOS[s.scenario].redGoals.map(([text])=>({text,done:win,failed:s.phase==='ended'&&!win}));
   if(s.scenario==='denmark41')return [{text:'有效打击俾斯麦号 / 结构 ≤ 65%',done:m.targetHealth<=65},{text:`持续保持接触 ${Math.floor(m.tracking)} / 120 秒`,done:m.tracking>=120},{text:`可作战英国主力舰 ${m.activeBattleships} / 至少 1`,done:win,failed:m.activeBattleships<1}];
   if(s.scenario==='guadalcanal42')return [{text:'使雾岛号失能 / 结构 ≤ 40%',done:m.targetHealth<=40},{text:`亨德森机场完整度 ${m.baseHealth}% / ≥ 60%`,done:win,failed:m.baseHealth<60},{text:`可作战战列舰 ${m.activeBattleships} / 至少 1`,done:win,failed:m.activeBattleships<1}];
   return [{text:`护航航母成功撤出 ${m.escapedCarriers} / 4`,done:m.escapedCarriers>=4},{text:`护航航母损失 ${m.lostCarriers} / 最多 2`,failed:m.lostCarriers>2,done:win},{text:'以烟幕、鱼雷与航空兵掩护撤退',done:win}];

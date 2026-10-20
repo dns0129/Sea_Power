@@ -1,4 +1,4 @@
-import {CRITICAL_PARTS} from './ww2-damage.js?v=0.12.0';
+import {CRITICAL_PARTS} from './ww2-damage.js?v=0.13.0';
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
 export function unitCommandCard(u,{contacts=[],choice=null,disabled=false,phase='running'}={}){

@@ -1,6 +1,8 @@
-import {missionControlled} from './unit-orders.js?v=0.12.0';
+import {missionControlled} from './unit-orders.js?v=0.13.0';
+import {playerSide,playerOutcome} from './factions.js?v=0.13.0';
 // Deterministic arena commander. Decisions use friendly state, public terrain and usable contacts.
-import {getBattleTheatre,factionName} from './battle-theatres.js?v=0.12.0';
+import {getBattleTheatre,factionName} from './battle-theatres.js?v=0.13.0';
+import {AI_LEVELS,aiLevel} from './tactical-rules.js?v=0.13.0';
 export const AI_DOCTRINES={
   balanced:{name:'均衡协同',description:'兼顾搜索、支援和适中距离交战。',standoff:.72,speed:.65},
   aggressive:{name:'积极进攻',description:'更快接敌，接近后再集中火力。',standoff:.60,speed:.85},
@@ -31,7 +33,7 @@ const FORCES={
 };
 const clone=value=>JSON.parse(JSON.stringify(value));
 const blankStats=()=>({shots:0,damageDealt:0,damagePoints:0,interceptions:0,sorties:0,spent:{}});
-export function automationSettings(preset='surface'){return {enabled:true,preset,blueDoctrine:'balanced',redDoctrine:'balanced',timeLimit:3600,seed:712301,started:false,startedAt:0,tickRemainder:0,finishedAt:null,winner:null,reason:'',deployment:null,stats:{blue:blankStats(),red:blankStats()},timeline:[]};}
+export function automationSettings(preset='surface'){return {enabled:true,control:'auto',preset,blueDoctrine:'balanced',redDoctrine:'balanced',blueDifficulty:'professional',redDifficulty:'professional',timeLimit:3600,seed:712301,started:false,startedAt:0,tickRemainder:0,finishedAt:null,winner:null,reason:'',deployment:null,stats:{blue:blankStats(),red:blankStats()},timeline:[]};}
 export function populateAutoPreset(s,preset,api){
   if(!Object.hasOwn(FORCES,preset))preset='surface';s.automation=automationSettings(preset);
   const theatre=getBattleTheatre(s);s.automation.timeLimit=7200;
@@ -43,7 +45,9 @@ export function populateAutoPreset(s,preset,api){
 export function configureAutomation(s,options={}){
   if(!options||typeof options!=='object'||Array.isArray(options))return {ok:false,error:'AI 设置无效'};
   const old=s.automation||automationSettings('custom'),next={...old};
+  if(options.control!==undefined){if(!['auto','player'].includes(options.control))return {ok:false,error:'请选择玩家指挥或双方 AI'};next.control=options.control;}
   for(const key of ['blueDoctrine','redDoctrine'])if(options[key]!==undefined){if(!Object.hasOwn(AI_DOCTRINES,options[key]))return {ok:false,error:'请选择有效 AI 作战风格'};next[key]=options[key];}
+  for(const key of ['blueDifficulty','redDifficulty'])if(options[key]!==undefined){if(!Object.hasOwn(AI_LEVELS,options[key]))return {ok:false,error:'请选择业余、专业或王牌 AI 强度'};next[key]=options[key];}
   if(options.timeLimit!==undefined){if(!Number.isInteger(options.timeLimit)||options.timeLimit<300||options.timeLimit>14400)return {ok:false,error:'对战时限应为 5–240 分钟'};next.timeLimit=options.timeLimit;}
   if(options.seed!==undefined){if(!Number.isInteger(options.seed)||options.seed<0||options.seed>4294967295)return {ok:false,error:'随机种子应为 0–4294967295 的整数'};next.seed=options.seed;}
   s.automation=next;return {ok:true};
@@ -53,7 +57,7 @@ function order(s,u,text,api){if(!u.ai)u.ai={anchor:{x:u.x,y:u.y},order:'',search
 export function hasCombatPlatform(s,side,api){return s.units.some(u=>u.side===side&&u.hp>0&&!u.exited&&!api.types[u.type].support&&(Object.entries(api.types[u.type].weapons).some(([key,n])=>n>0&&api.weapons[key].targets.some(d=>d!=='missile'))||Object.keys(api.types[u.type].deck?.wing||{}).length));}
 export function beginAutomation(s,deployment,api){
   const a=s.automation;a.started=true;a.startedAt=s.time;a.tickRemainder=0;a.finishedAt=null;a.reason='';a.winner=null;a.deployment=deployment;a.stats={blue:blankStats(),red:blankStats()};a.timeline=[];s.seed=a.seed;
-  for(const u of s.units){u.ai={anchor:{x:u.x,y:u.y},order:'',searchIndex:0,goal:null,goalTime:0,dipUntil:0,nextDip:0};u.leader=null;u.offset=null;if(api.types[u.type].domain==='air'&&api.airborne(u))a.stats[u.side].sorties++;}
+  for(const u of s.units){u.ai={anchor:{x:u.x,y:u.y},order:'',searchIndex:0,goal:null,goalTime:0,dipUntil:0,nextDip:0};u.nextDecision=u.nextCombat=0;if(a.control!=='player'||u.side!==playerSide(s)){u.commandMode='auto';u.manualTarget=null;u.leader=null;u.offset=null;}else u.autoEngage=false;if(api.types[u.type].domain==='air'&&api.airborne(u))a.stats[u.side].sorties++;}
   event(s,'both','双方 AI 已接管；仅依照本方有效航迹决策。');commandAutomation(s,api);api.scan(s);
 }
 function prepare(s,u,api){const t=api.types[u.type];u.autoEngage=true;u.autoDefense=true;u.datalink=true;u.sonar=t.sonar>0;u.esm=t.esm>0;u.jamming=t.jammer>0&&api.airborne(u);u.radar=t.radar>0&&t.domain!=='sub';
@@ -114,7 +118,7 @@ export function commandAutomation(s,api){
   if(!s.automation?.started||s.phase!=='running')return;
   for(const u of [...s.units]){
     if(!missionControlled(u))continue;
-    if(u.hp<=0||u.exited)continue;const t=api.types[u.type],air=t.domain==='air';if(!u.ai)order(s,u,'接收任务',api);prepare(s,u,api);
+    if(u.hp<=0||u.exited||s.automation.control==='player'&&u.side===playerSide(s)||s.time<(u.nextDecision||0))continue;const level=aiLevel(s,u.side);u.nextDecision=s.time+level.reaction;const t=api.types[u.type],air=t.domain==='air';if(!u.ai)order(s,u,'接收任务',api);prepare(s,u,api);
     const own=s.units.filter(v=>v.side===u.side&&v.hp>0&&!v.exited),contacts=knownContacts(s,u,api),doctrine=AI_DOCTRINES[s.automation[u.side+'Doctrine']];
     if(air&&u.flightState==='servicing'){
       const row=u.loadout==='custom'?api.getLoadout(u):api.unitById(s,u.originDeck)?.wingLoadouts[u.type]||selectLoadout(s,u.type,contacts,own,api);if(row&&row.id!==u.loadout){u.loadout=row.id;u.customLoadout=row.id==='custom'?clone(row):null;for(const key of Object.keys(u.weapons))u.weapons[key]=Math.min(u.weapons[key],row.weapons[key]||0);}order(s,u,'整备，准备下一架次',api);continue;
@@ -123,6 +127,11 @@ export function commandAutomation(s,api){
     if(u.flightState==='returning'){order(s,u,'返航加油装弹',api);continue;}
     if(u.refuelTarget){order(s,u,'会合空中加油',api);continue;}
     if(u.supplyTarget){order(s,u,'转移航空补给',api);continue;}
+    if(u.hp/t.hp<level.retreat){
+      if(air){api.returnToBase(s,u.id);order(s,u,'保存受损机群，返航',api);}
+      else if(t.domain!=='land'){navigate(s,u,behind(s,u,u.ai.anchor,22,api),Math.min(api.maxSpeed(u),t.speed*.8),'受损撤退，保持自卫',api);}
+      continue;
+    }
     if(air&&!t.support&&missionAmmoEmpty(u,t,api)){api.returnToBase(s,u.id);order(s,u,'任务弹药耗尽，返航整备',api);continue;}
     if(air&&t.refuelSystem&&u.fuel<t.endurance*30){const donor=own.filter(v=>api.types[v.type].tanker&&api.airborne(v)&&v.flightState==='airborne'&&api.types[v.type].refuelSystems.includes(t.refuelSystem)&&v.fuelSupply>0&&api.distance(u,v)<60).sort((a,b)=>api.distance(u,a)-api.distance(u,b))[0];if(donor&&api.requestRefuel(s,u.id,donor.id).ok){order(s,u,'前往兼容加油机会合',api);continue;}}
     deckOperations(s,u,contacts,own,api);
@@ -141,15 +150,21 @@ export function commandAutomation(s,api){
     if(air&&t.sonar){u.altitude='low';if(t.sonarMode==='dipping'||t.rotary){if(s.time>=u.ai.nextDip){u.ai.dipUntil=s.time+48;u.ai.nextDip=s.time+138;}if(s.time<u.ai.dipUntil&&!contacts.some(c=>c.domain==='sub'&&c.quality==='track')){u.speed=0;u.route=[];order(s,u,'低空悬停，吊放声呐搜索',api);continue;}}}
     const candidates=contacts.filter(c=>c.quality==='track'&&engagementWeapons(s,u,c,api).length);
     candidates.sort((a,b)=>((air&&!t.sonar&&u.weapons.aam>0?a.domain==='air':a.domain==='sub')?0:1)-((air&&!t.sonar&&u.weapons.aam>0?b.domain==='air':b.domain==='sub')?0:1)||api.distance(u,a)-api.distance(u,b));
+    if(level===AI_LEVELS.amateur)candidates.sort((a,b)=>api.distance(u,a)-api.distance(u,b));
+    if(level===AI_LEVELS.ace){const score=c=>api.distance(u,c)+(s.missiles.filter(m=>m.side===u.side&&m.target===c.id).length*35)-(air&&u.weapons.aam&&c.domain==='air'?30:0);candidates.sort((a,b)=>score(a)-score(b));}
     const passive=!candidates.length&&u.weapons.arm&&u.esm&&api.radioAvailable(u)?api.visibleContacts(s,u.side).find(c=>!c.stale&&c.emitting&&['surface','land'].includes(c.domain)):null,target=candidates[0]||passive;
     if(target){
       const keys=engagementWeapons(s,u,target,api),ranges=keys.map(k=>engagementRange(s,u,target,k,api)),range=Math.max(...ranges,1),longest=keys[ranges.indexOf(Math.max(...ranges))],desired=Math.max(1,(longest?api.weaponStats(u,longest).minRange:0)*1.3,range*doctrine.standoff),d=api.distance(u,target)||1;
-      const goal={x:target.x+(u.x-target.x)/d*desired,y:target.y+(u.y-target.y)/d*desired};
+      const flank=level===AI_LEVELS.ace&&air&&target.domain==='surface'?(Number(u.id.slice(1))%2?1:-1)*Math.min(6,desired*.18):0;
+      const goal={x:target.x+(u.x-target.x)/d*desired-(u.y-target.y)/d*flank,y:target.y+(u.y-target.y)/d*desired+(u.x-target.x)/d*flank};
       const speed=t.domain==='sub'?8:air?t.rotary?target.domain==='sub'?35:Math.min(100,t.speed):t.speed*.75:t.sonar>=30?10:t.speed*doctrine.speed;
       navigate(s,u,goal,speed,`${target.domain==='sub'?'反潜':target.domain==='air'?'拦截':'接敌'} · ${target.label||'已发现目标'}`,api);
     }else{
+      const escort=level.coordination&&air&&u.weapons.aam>0&&!t.support?own.filter(v=>v.id!==u.id&&api.airborne(v)&&v.flightState==='airborne'&&(api.types[v.type].support||v.weapons.asm>0||v.weapons.bomb>0)&&v.route.length).sort((a,b)=>api.distance(u,a)-api.distance(u,b))[0]:null;
+      if(escort){navigate(s,u,{x:escort.x+(u.side==='blue'?5:-5),y:escort.y+3},t.speed*.65,'掩护友方攻击与支援机',api);continue;}
       const speed=t.domain==='sub'?7:air?t.rotary?80:t.speed*.65:t.sonar>=30?10:t.speed*doctrine.speed;
-      navigate(s,u,searchPoint(s,u,api),speed,t.domain==='sub'?'低速声呐搜索':air&&t.sonar?'转场反潜搜索':'按公共海区搜索',api);
+      const point=searchPoint(s,u,api);if(level===AI_LEVELS.ace)point.y+=(Number(u.id.slice(1))%5-2)*6;
+      navigate(s,u,point,speed,t.domain==='sub'?'低速声呐搜索':air&&t.sonar?'转场反潜搜索':'按公共海区搜索',api);
     }
   }
 }
@@ -167,7 +182,7 @@ function canStillAttack(s,side,api){return s.units.some(u=>{
 });}
 export function finishAutomation(s,reason,api,winner=null){const a=s.automation;if(!a?.started||s.phase==='ended')return;
   if(!winner){const delta=a.stats.blue.damagePoints-a.stats.red.damagePoints;winner=Math.abs(delta)<.5?'draw':delta>0?'blue':'red';}
-  a.winner=winner;a.reason=reason;a.finishedAt=s.time;s.phase='ended';s.paused=true;s.result=winner==='blue'?'victory':winner==='red'?'defeat':'draw';event(s,'both',`${winner==='draw'?'双方平局':factionName(s,winner)+'获胜'}：${reason}`);api.log(s,a.timeline.at(-1).message,'combat');
+  a.winner=winner;a.reason=reason;a.finishedAt=s.time;s.phase='ended';s.paused=true;s.result=playerOutcome(s,winner==='blue'?'victory':winner==='red'?'defeat':'draw');event(s,'both',`${winner==='draw'?'双方平局':factionName(s,winner)+'获胜'}：${reason}`);api.log(s,a.timeline.at(-1).message,'combat');
 }
 export function updateAutoOutcome(s,api){if(!s.automation?.started||s.phase!=='running')return;const a=s.automation;
   if(s.time-a.startedAt>=a.timeLimit){finishAutomation(s,'达到对战时限，按实际有效毁伤部署点结算',api);return;}
@@ -175,7 +190,7 @@ export function updateAutoOutcome(s,api){if(!s.automation?.started||s.phase!=='r
   if((!blue||!red)&&!pending){finishAutomation(s,'一方或双方战斗平台已全部损失',api,!blue&&!red?'draw':blue?'blue':'red');return;}
   if(!pending&&!canStillAttack(s,'blue',api)&&!canStillAttack(s,'red',api))finishAutomation(s,'双方已无可用攻击弹药或后续作战架次',api);
 }
-export function automationReport(s){const a=s.automation;if(!a?.enabled)return null;const result={status:s.phase,winner:a.winner,reason:a.reason,time:Math.max(0,(a.finishedAt??s.time)-a.startedAt),timeLimit:a.timeLimit,seed:a.seed,blueDoctrine:a.blueDoctrine,redDoctrine:a.redDoctrine,preset:a.preset,timeline:clone(a.timeline)};
+export function automationReport(s){const a=s.automation;if(!a?.enabled)return null;const result={status:s.phase,winner:a.winner,reason:a.reason,time:Math.max(0,(a.finishedAt??s.time)-a.startedAt),timeLimit:a.timeLimit,seed:a.seed,blueDoctrine:a.blueDoctrine,redDoctrine:a.redDoctrine,blueDifficulty:a.blueDifficulty,redDifficulty:a.redDifficulty,preset:a.preset,timeline:clone(a.timeline)};
   for(const side of ['blue','red']){const units=s.units.filter(u=>u.side===side),surviving=units.filter(u=>u.hp>0&&!u.exited).length,stats=a.stats[side];result[side]={deployed:units.length,surviving,lost:units.length-surviving,damageDealt:Math.round(stats.damageDealt*10)/10,shots:stats.shots,interceptions:stats.interceptions,sorties:stats.sorties,score:Math.round(stats.damagePoints*10)/10,spent:{...stats.spent}};}
   return result;
 }
@@ -188,7 +203,7 @@ export function restoreAutomation(raw,s,api){
   if(raw.tickRemainder!==undefined&&(!validNumber(raw.tickRemainder,0,1)||raw.tickRemainder>=1))throw Error('AI 时间步余量无效');a.tickRemainder=raw.tickRemainder??0;
   if(![null,'blue','red','draw'].includes(raw.winner)||s.phase==='ended'&&!raw.winner||s.phase!=='ended'&&raw.winner!==null)throw Error('对战结果无效');a.winner=raw.winner;
   if(raw.finishedAt!==null&&!validNumber(raw.finishedAt,a.startedAt,s.time))throw Error('对战结束时间无效');a.finishedAt=raw.finishedAt;if(s.phase==='ended'&&a.finishedAt!==s.time||s.phase!=='ended'&&a.finishedAt!==null)throw Error('对战结束时间与阶段不一致');
-  if(s.phase==='ended'&&s.result!==(a.winner==='blue'?'victory':a.winner==='red'?'defeat':'draw')||s.phase!=='ended'&&s.result!==null)throw Error('对战胜负记录不一致');a.reason=typeof raw.reason==='string'?raw.reason.slice(0,160):'';
+  if(s.phase==='ended'&&s.result!==playerOutcome(s,a.winner==='blue'?'victory':a.winner==='red'?'defeat':'draw')||s.phase!=='ended'&&s.result!==null)throw Error('对战胜负记录不一致');a.reason=typeof raw.reason==='string'?raw.reason.slice(0,160):'';
   if(raw.deployment!==null){if(typeof raw.deployment!=='string'||raw.deployment.length>450000)throw Error('初始部署快照无效');const saved=JSON.parse(raw.deployment);if(saved.phase!=='setup'||saved.scenario!==s.scenario||(saved.mapId||null)!==(s.mapId||null)||saved.automation?.started!==false||saved.automation.deployment!==null)throw Error('初始部署快照无效');api.validateDeployment(raw.deployment);a.deployment=raw.deployment;}else if(a.started)throw Error('自动对战缺少初始部署');
   for(const side of ['blue','red']){const st=raw.stats?.[side];if(!st)throw Error('对战统计缺失');for(const key of ['shots','damageDealt','damagePoints','interceptions','sorties']){if(!validNumber(st[key],0,1e8)||!['damageDealt','damagePoints'].includes(key)&&!Number.isInteger(st[key]))throw Error('对战统计无效');a.stats[side][key]=st[key];}a.stats[side].spent={};for(const [key,n] of Object.entries(st.spent||{})){if(!Object.hasOwn(api.weapons,key)&&key!=='ciws'||!Number.isInteger(n)||n<0||n>1e8)throw Error('弹药统计无效');a.stats[side].spent[key]=n;}}
   if(!Array.isArray(raw.timeline)||raw.timeline.length>400)throw Error('对战记录无效');a.timeline=raw.timeline.map(e=>{if(!['blue','red','both'].includes(e.side)||typeof e.message!=='string'||e.message.length>200||!validNumber(e.time,0,Math.max(0,s.time-a.startedAt)))throw Error('对战记录无效');return {time:e.time,side:e.side,message:e.message};});

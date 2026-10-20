@@ -1,8 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import * as E from '../dist/engine.js?v=0.12.0';
-import {seaSnapshot} from '../dist/sea-scene-data.js?v=0.12.0';
-import {unitCommandCard} from '../dist/unit-command-ui.js?v=0.12.0';
+import * as E from '../dist/engine.js?v=0.13.0';
+import {seaSnapshot} from '../dist/sea-scene-data.js?v=0.13.0';
+import {unitCommandCard} from '../dist/unit-command-ui.js?v=0.13.0';
 
 function running(id='midway42'){const s=E.createState(id);E.start(s);return s;}
 function aircraftPair(){

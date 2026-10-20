@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-import {TYPES,WEAPONS,createState,addUnit,start,step,scan,setLoadout,setDepth,setRoute,launchDeck,deckCompatible,requestRefuel,requestSupply,returnToBase,serialize,deserialize,fireCheck,sensorRange,removeUnit} from '../dist/engine.js?v=0.12.0';
+import {TYPES,WEAPONS,createState,addUnit,start,step,scan,setLoadout,setDepth,setRoute,launchDeck,deckCompatible,requestRefuel,requestSupply,returnToBase,serialize,deserialize,fireCheck,sensorRange,removeUnit} from '../dist/engine.js?v=0.13.0';
 import {MODEL_SOURCES,CATEGORIES,PAYLOAD_WEIGHTS} from '../dist/modern-catalog.js';
 const models=Object.entries(TYPES).filter(([,t])=>t.model);
 function setup(){const s=createState('modernlab');s.units=[];s.budget=s.redBudget=1000;return s;}
@@ -86,7 +86,7 @@ test('所有型号的所有挂载可保存载入，库存与支持状态不能�
 });
 test('v3 存档缺少新武器与支持字段时安全迁移到 v7',()=>{
   const raw=JSON.parse(serialize(createState('strait')));raw.version=3;for(const u of raw.units){for(const key of ['gun','asroc','pgm','atgm'])delete u.weapons[key];for(const key of ['loadout','airwing','deckReady','deckBased','originDeck','fuelSupply','refuelTarget','supplyTarget','depth'])delete u[key];}
-  const s=deserialize(JSON.stringify(raw));assert.equal(s.version,7);assert.equal(s.units[0].weapons.gun,0);assert.ok(s.paused);
+  const s=deserialize(JSON.stringify(raw));assert.equal(s.version,9);assert.equal(s.units[0].weapons.gun,0);assert.ok(s.paused);
 });
 test('现代沙盘长时间推演保持预算、库存与引用，红方自动放飞预警与战斗机',()=>{
   const s=createState('modernlab');start(s);const carrier=s.units.find(u=>u.type==='cvn_ford');launchDeck(s,carrier.id,'e2d');for(let i=0;i<6;i++)step(s,300);

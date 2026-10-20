@@ -1,6 +1,8 @@
-import {SCENARIOS,TYPES,AUTO_PRESETS,AI_DOCTRINES,createState,createAutoBattle,configureAutoBattle,start,isHistorical,isWW2,isAutoBattle,freeDeploy,worldFor,landFor,getBattleTheatre,factionName} from './engine.js?v=0.12.0';
-import {geographicMap,geoToWorld} from './geography.js?v=0.12.0';
-import {missionZone,missionSearch} from './historical-missions.js?v=0.12.0';
+import {factionInfo,forceEstimate,opposingSide} from './factions.js?v=0.13.0';
+import {chartTheme} from './chart-themes.js?v=0.13.0';
+import {SCENARIOS,TYPES,AUTO_PRESETS,AI_DOCTRINES,AI_LEVELS,WEATHER,setBattleConditions,playerSide,setPlayerSide,setPresentation,CHART_THEMES,configureWW2Sandbox,WW2_PRESETS,createState,createAutoBattle,configureAutoBattle,start,isHistorical,isWW2,isAutoBattle,freeDeploy,worldFor,landFor,getBattleTheatre,factionName} from './engine.js?v=0.13.0';
+import {geographicMap,geoToWorld} from './geography.js?v=0.13.0';
+import {missionZone,missionSearch} from './historical-missions.js?v=0.13.0';
 
 const esc=value=>String(value).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const number=value=>Number(value).toFixed(1).replace(/\.0$/,'');
@@ -17,18 +19,18 @@ const modeFor=s=>isWW2(s)?'ww2':isHistorical(s)?'history':isAutoBattle(s)?'ai':'
 const modeName=s=>modes.find(m=>m.id===modeFor(s)).name;
 const scenarioName=s=>isAutoBattle(s)?AUTO_PRESETS.find(p=>p.id===s.automation?.preset)?.name||SCENARIOS[s.scenario].name:SCENARIOS[s.scenario].name;
 const fixed=s=>isHistorical(s);
-const unrestricted=s=>['modernlab','sandbox'].includes(s.scenario)&&!isAutoBattle(s);
+const unrestricted=s=>['modernlab','sandbox','ww2sandbox'].includes(s.scenario)&&!isAutoBattle(s);
 const timeLimit=s=>SCENARIOS[s.scenario].duration||s.automation?.timeLimit||0;
 const duration=s=>timeLimit(s)?`${number(timeLimit(s)/60)} 分钟`:'自由推演';
 const mapName=s=>geographicMap(s)?.name||getBattleTheatre(s)?.name||'苍岬群岛 · 虚构训练海域';
-const friendly=s=>s.units.filter(u=>u.side==='blue'&&u.hp>0&&!u.exited);
-const showOpposing=s=>isAutoBattle(s)||s.phase==='setup'&&freeDeploy(s);
+const friendly=s=>s.units.filter(u=>u.side===playerSide(s)&&u.hp>0&&!u.exited);
+const showOpposing=s=>isAutoBattle(s)&&s.automation?.control!=='player'||s.phase==='setup'&&freeDeploy(s);
 const combatReady=s=>['blue','red'].every(side=>isHistorical(s)&&side==='red'||s.units.some(u=>u.side===side&&u.hp>0&&!u.exited&&!TYPES[u.type].support));
 const row=(label,value)=>`<div class="flow-info-row"><span>${esc(label)}</span><span>${esc(value)}</span></div>`;
 
 export function scenarioChoices(mode){
   if(mode==='ai')return AUTO_PRESETS.map(p=>({id:p.id,name:p.name,detail:p.description}));
-  return Object.entries(SCENARIOS).filter(([id,s])=>mode==='ww2'?s.era==='ww2':mode==='history'?s.historical&&s.era!=='ww2':id!=='autobattle'&&!s.historical).map(([id,s])=>({id,name:s.name,detail:s.historical?`${s.date.slice(0,4)} · ${s.difficulty} · ${s.duration/60} 分钟`:`${s.budget} 部署点 · ${s.subtitle}`}));
+  return Object.entries(SCENARIOS).filter(([id,s])=>mode==='ww2'?s.era==='ww2':mode==='history'?s.historical&&s.era!=='ww2':id!=='autobattle'&&!s.historical&&s.era!=='ww2').map(([id,s])=>({id,name:s.name,detail:s.historical?`${s.date.slice(0,4)} · ${s.difficulty} · ${s.duration/60} 分钟`:`${s.budget} 部署点 · ${s.subtitle}`}));
 }
 
 export function scenarioThumbnail(mode,id){
@@ -37,6 +39,14 @@ export function scenarioThumbnail(mode,id){
 }
 
 export function missionGoals(s){
+  if(s.scenario==='ww2sandbox')return [['自由配置二战双方兵力','每方 600 点，支持舰炮／鱼雷、航母或潜艇编组，亦可空白部署。'],['指挥所选阵营并组织搜索与交战','另一方 AI 使用其自己的目视与声呐报告行动。'],['自行决定演练目标','没有强制时限；可随时保存、改变天气或重设部署。']];
+  if(playerSide(s)==='red'&&isHistorical(s)){
+    if(SCENARIOS[s.scenario].redGoals)return SCENARIOS[s.scenario].redGoals;
+    if(isWW2(s))return [['保护至少两艘可作战日军航母','阻止美军压制三艘日军航母。'],['压制中途岛或使美军航母失去航空作战能力','也可通过阻止对方完成目标，坚持至四小时时限获胜。'],['自行组织侦察、防空与攻击波','敌舰位置必须通过本方侦察确认。']];
+    if(s.scenario==='bubiyan91')return [['让至少两艘本方舰艇通过东侧脱离线','击退追击航空兵，并保护撤离舰队。'],['或阻止对方在时限内击沉三艘舰艇','保留舰船也能阻止封锁目标达成。'],['30 分钟作战窗口','可逐舰规划避岸航路与开火时机。']];
+    if(s.scenario==='mantis88')return [['保护萨汉德号，阻止美军完成打击与撤离','指挥护卫舰和后续岸基航空支援。'],['击沉美方指挥舰，或坚持至时限','对方未完成联合目标即算本方获胜。'],['40 分钟作战窗口','利用已发现的航迹组织反击。']];
+    return [['击沉至少一艘运输船，或阻止卸载','对方运输船位置需本方搜索确认。'],['指挥分三波到达的攻击机','首波在约两分钟后进入，避免无效消耗。'],['35 分钟内阻止对方任务','可逐群下令，或执行本方打击任务。']];
+  }
   if(SCENARIOS[s.scenario]?.goals)return SCENARIOS[s.scenario].goals;
   if(isWW2(s))return [
     ['使至少三艘日军航母失去航空作战能力','通过舰载机攻击使航母结构低于 40%，关闭其飞行甲板。'],
@@ -59,9 +69,9 @@ export function missionGoals(s){
     ['抵御三波空袭，35 分钟内完成任务','利用护航舰和战斗机保护运输船。'],
   ];
   if(isAutoBattle(s))return [
-    ['双方 AI 自主侦察、机动和交战','部署完成后，由 AI 使用各自传感器获取的航迹指挥。'],
+    [s.automation.control==='player'?'指挥所选阵营，对方 AI 自主作战':'双方 AI 自主侦察、机动和交战','双方使用各自传感器获取的航迹指挥。'],
     ['歼灭对方战斗兵力，或按有效毁伤结算','歼灭后等待在途攻击结算；达到时限或弹药耗尽时比较实际毁伤评分。'],
-    [`推演时限 ${duration(s)}`,'可以暂停、调整观看倍率，并切换观察视角。'],
+    [`推演时限 ${duration(s)}`,s.automation.control==='player'?'可以暂停下令并调整推演倍率；仅显示本方与已发现的敌情。':'可以暂停、调整观看倍率，并切换观察视角。'],
   ];
   if(unrestricted(s))return [
     ['按部署点自由配置双方编队','进入海图后选择装备与任务挂载，再开始推演。'],
@@ -69,23 +79,27 @@ export function missionGoals(s){
     ['自主决定演练方向','本沙盘没有强制胜负与任务倒计时。'],
   ];
   return [
-    ['摧毁全部红方战斗单位','基地和专职支援平台不计入歼灭目标。'],
-    ['保护蓝方战斗兵力','蓝方战斗单位全部损失，推演失败。'],
+    [`摧毁全部${factionName(s,opposingSide(playerSide(s)))}战斗单位`,'基地和专职支援平台不计入歼灭目标。'],
+    ['保护本方战斗兵力','本方战斗单位全部损失，推演失败。'],
     ['先建立有效航迹，再组织交战',SCENARIOS[s.scenario].subtitle],
   ];
 }
 
+export function scenarioBrief(s){
+  return playerSide(s)==='red'&&!unrestricted(s)&&!isAutoBattle(s)?'本方任务：'+missionGoals(s).slice(0,2).map(g=>g[0]).join('；'):SCENARIOS[s.scenario].brief;
+}
+
 // SVG 直接使用游戏海岸线与海里坐标；历史简报不绘制隐藏敌方位置。
 export function briefingChart(s,{deployment=false,compact=false,home=false}={}){
-  const world=worldFor(s),geo=geographicMap(s),theatre=getBattleTheatre(s);
+  const world=worldFor(s),geo=geographicMap(s),theatre=getBattleTheatre(s),palette=chartTheme(s);
   const scale=Math.min(880/world.width,490/world.height),ox=(1000-world.width*scale)/2,oy=(620-world.height*scale)/2;
   const x=v=>number(ox+v*scale),y=v=>number(oy+v*scale);
   const label=(text,p,color='#829eaa')=>`<text x="${x(p.x)}" y="${y(p.y)}" fill="${color}">${esc(text)}</text>`;
   const route=points=>points.map(p=>`${x(p.x)},${y(p.y)}`).join(' ');
-  let svg='<rect width="1000" height="620" fill="#0c202d"/>';
+  let svg=`<rect width="1000" height="620" fill="${palette.sea}"/>`;
   for(let i=20;i<1000;i+=50)svg+=`<path d="M${i} 0V620" class="chart-grid"/>`;
   for(let i=10;i<620;i+=50)svg+=`<path d="M0 ${i}H1000" class="chart-grid"/>`;
-  for(const poly of landFor(s))svg+=`<polygon points="${poly.map(p=>`${x(p[0])},${y(p[1])}`).join(' ')}" fill="#213641" stroke="#45606a" stroke-width="1"/>`;
+  for(const poly of landFor(s))svg+=`<polygon points="${poly.map(p=>`${x(p[0])},${y(p[1])}`).join(' ')}" fill="${palette.land}" stroke="${palette.coast}" stroke-width="1"/>`;
   if(!compact){
     for(const [name,lon,lat] of geo?.labels||[])svg+=label(name,geoToWorld(geo,lon,lat));
     if(!geo)svg+=label(theatre?'虚构远海演练区':'苍岬群岛',{x:world.width*.44,y:world.height*.18},'#587889');
@@ -101,9 +115,9 @@ export function briefingChart(s,{deployment=false,compact=false,home=false}={}){
       for(const side of ['blue','red'])svg+=`<path d="M${x(theatre.anchors[side].x)} ${y(8)}V${y(world.height-8)}" stroke="${side==='blue'?'#80cbb880':'#e8848080'}" stroke-dasharray="5 6"/>`;
       svg+=`<text x="500" y="35" text-anchor="middle">初始部署间隔 ≥ ${theatre.initialSeparationKm} 公里</text>`;
     }
-    const units=s.units.filter(u=>(u.side==='blue'||deployment&&showOpposing(s))&&u.hp>0&&!u.exited);
+    const units=(s.units||[]).filter(u=>(u.side===playerSide(s)||deployment&&showOpposing(s))&&u.hp>0&&!u.exited);
     units.forEach((u,i)=>{
-      const domain=TYPES[u.type].domain,color=u.side==='blue'?'#8cd3bd':'#e88480';
+      const domain=TYPES[u.type].domain,color=u.side===playerSide(s)?palette.friendly:palette.hostile;
       if(home&&u.route?.length)svg+=`<polyline points="${route([u,...u.route])}" fill="none" stroke="#80cbb84d" stroke-dasharray="6 5"/>`;
       svg+=`<g transform="translate(${x(u.x)} ${y(u.y)})" fill="none" stroke="${color}" stroke-width="1.4">${domain==='air'?'<path d="M-8 4L0-8 8 4M0-8V9M-4 9L0 6 4 9"/>':domain==='sub'?'<ellipse rx="9" ry="5"/>':domain==='land'?'<path d="M-7 7V-2L0-8 7-2V7Z"/>':'<rect x="-6" y="-7" width="12" height="14"/><path d="M-3 0H3M0-3V3"/>'}</g>`;
       if(!home)svg+=`<text x="${number(ox+u.x*scale+12)}" y="${number(oy+u.y*scale+5)}" fill="${color}">${String(i+1).padStart(2,'0')}</text>`;
@@ -114,11 +128,17 @@ export function briefingChart(s,{deployment=false,compact=false,home=false}={}){
   return `<svg viewBox="0 0 1000 620" fill="#829eaa" class="flow-chart${compact?' flow-chart-mini':''}" role="img" aria-label="${esc(mapName(s))}${deployment?' · 部署情况':''}"${compact?' preserveAspectRatio="xMidYMid slice"':''}>${svg}</svg>`;
 }
 
+export function briefingIntel(s){
+  const side=playerSide(s),own=factionInfo(s,side),enemy=factionInfo(s,opposingSide(side)),counts={surface:0,air:0,sub:0,land:0};
+  for(const u of s.units||[])if(u.side===side&&u.hp>0&&!u.exited)counts[TYPES[u.type].domain]++;
+  return {own:{...own,summary:`水面 ${counts.surface} · 潜艇 ${counts.sub} · 航空 ${counts.air} · 岸基 ${counts.land}`},enemy:{...enemy,summary:forceEstimate(s,opposingSide(side))}};
+}
+
 export function homeMenu({session=false,hasSave=false}={}){
   return `<main class="flow-menu"><div class="flow-menu-heading"><h1 tabindex="-1">海空战模拟平台</h1><p>选择游戏模式</p></div><nav class="flow-mode-grid" aria-label="选择游戏模式">${modes.map(m=>`<button type="button" class="flow-entry-card" data-flow-mode="${m.id}">${icon(m.symbol)}<span class="flow-entry-title">${m.name}</span><span class="flow-entry-description">${m.description}</span><span class="flow-entry-next">${m.id==='ai'?'选择对战预案':'选择剧本'} →</span></button>`).join('')}</nav><div class="flow-home-tools"><button class="flow-secondary" data-flow-action="resume" ${!session&&!hasSave?'disabled':''}>${session?'返回当前战局':'继续战局'}</button><button class="flow-secondary" data-flow-action="import">导入存档</button></div></main>`;
 }
 
-export function createScenarioFlow({root,getState,onPause,onLaunch,onResume,hasSave,onImport,onHelp,onError,onReveal=()=>{}}){
+export function createScenarioFlow({root,getState,onPause,onLaunch,onResume,hasSave,onImport,onHelp,onError,onReveal=()=>{},onPresentation=()=>{}}){
   let screen='home',page=0,mode='history',choice='bubiyan91',draft=createState(choice),readOnly=false,session=false,opener=null;
   const selections={history:'bubiyan91',ww2:'midway42',ai:'surface',sandbox:'modernlab'};
   const gameElements=()=>document.querySelectorAll('.workspace,.hud-widget,.hud-dock,.mission-strip');
@@ -130,38 +150,44 @@ export function createScenarioFlow({root,getState,onPause,onLaunch,onResume,hasS
   function close(){visible(false);onReveal();(opener?.isConnected&&!opener.closest('#game-flow')?opener:document.querySelector('#map'))?.focus({preventScroll:true});}
   function select(nextMode,nextChoice=selections[nextMode]){
     mode=nextMode;choice=nextChoice;selections[mode]=choice;
-    draft=mode==='ai'?createAutoBattle(choice):createState(choice);readOnly=false;
+    draft=mode==='ai'?createAutoBattle(choice):createState(choice);draft.chartTheme=getState().chartTheme||'dark';draft.modelScale=getState().modelScale||'realistic';readOnly=false;
   }
-  const header=()=>`<header class="flow-header"><button class="flow-brand" data-flow-action="home" aria-label="返回主页">SEA POWER</button><span class="flow-header-label">${screen==='brief'?'任务简报':'海空战模拟平台'}</span><span class="flow-header-context">${screen==='brief'?`${esc(modeName(draft))} / ${esc(scenarioName(draft))}`:'海空联合战术沙盘'}</span><small class="flow-version">v0.12.0</small>${screen==='home'?'<button data-flow-action="help">操作指南</button>':`<button data-flow-action="${session?'resume':'home'}">${session?'返回战场':'返回主页'} <span aria-hidden="true">×</span></button>`}</header>`;
+  const header=()=>`<header class="flow-header"><button class="flow-brand" data-flow-action="home" aria-label="返回主页">SEA POWER</button><span class="flow-header-label">${screen==='brief'?'任务简报':'海空战模拟平台'}</span><span class="flow-header-context">${screen==='brief'?`${esc(modeName(draft))} / ${esc(scenarioName(draft))}`:'海空联合战术沙盘'}</span><small class="flow-version">v0.13.0</small>${screen==='home'?'<button data-flow-action="help">操作指南</button>':`<button data-flow-action="${session?'resume':'home'}">${session?'返回战场':'返回主页'} <span aria-hidden="true">×</span></button>`}</header>`;
   function home(){
     return homeMenu({session,hasSave:!session&&hasSave()});
   }
   function selection(){
     return `<div class="flow-scroll flow-select"><div class="flow-selection-heading"><div class="flow-page-heading"><p class="flow-breadcrumb">主页 / 开始游戏</p><h1 tabindex="-1">选择模式与剧本</h1><p>先选择模式，再选择剧本。</p></div><button class="primary" data-flow-action="brief" aria-label="查看选中剧本的战斗简介">查看战斗简介 →</button></div><div class="flow-select-columns"><section aria-labelledby="flow-modes-label"><h2 id="flow-modes-label"><span class="flow-step">01</span> 选择模式</h2><div class="flow-mode-list">${modes.map(m=>`<button class="flow-mode-card ${mode===m.id?'is-selected':''}" data-flow-mode="${m.id}" aria-pressed="${mode===m.id}">${icon(m.symbol)}<span><strong>${m.name}</strong><small>${m.description}</small></span>${mode===m.id?'<span class="flow-check" aria-hidden="true">✓</span>':''}</button>`).join('')}</div></section><section class="flow-choices" aria-labelledby="flow-choices-label"><h2 id="flow-choices-label"><span class="flow-step">02</span> ${mode==='ai'?'选择预案':'选择剧本'}</h2><div class="flow-choice-list">${scenarioChoices(mode).map(c=>`<button class="flow-choice ${choice===c.id?'is-selected':''}" data-flow-choice="${c.id}" aria-pressed="${choice===c.id}"><span class="flow-choice-thumbnail" aria-hidden="true">${scenarioThumbnail(mode,c.id)}</span><span class="flow-choice-copy"><strong>${esc(c.name)}</strong><small>${esc(c.detail)}</small></span>${choice===c.id?'<span class="flow-check" aria-hidden="true">✓</span>':''}</button>`).join('')}</div><div class="flow-selected-summary">${briefingChart(draft,{compact:true})}<div><small>选中${mode==='ai'?'预案':'剧本'}信息</small><p>${fixed(draft)?'固定兵力':`蓝方可用 ${draft.budget} 部署点`} / ${esc(mapName(draft))}</p></div></div></section></div></div><footer class="flow-footer"><button class="flow-secondary" data-flow-action="home">← 返回主页</button><span></span><button class="primary" data-flow-action="brief">查看战斗简介 →</button></footer>`;
   }
+  function sideChoices(){return `<section class="flow-side-choice"><h2>${readOnly?'当前阵营':'选择扮演阵营'}</h2><div class="flow-side-grid">${['blue','red'].map(side=>{const f=factionInfo(draft,side);return `<button class="flow-faction ${playerSide(draft)===side?'is-selected':''}" data-flow-side="${side}" aria-pressed="${playerSide(draft)===side}" ${readOnly?'disabled':''}><span class="faction-flag" aria-label="${esc(f.country)}">${f.flag}</span><span><strong>${esc(f.name)}</strong><small>${readOnly?'本局阵营':'亲自指挥此方'}</small></span>${playerSide(draft)===side?'✓':''}</button>`;}).join('')}</div></section>`;}
+  function intelPanel(){const info=briefingIntel(draft);return `<div class="flow-intel-grid">${['own','enemy'].map(key=>{const f=info[key];return `<section class="flow-force-card"><h3><span class="faction-flag">${f.flag}</span> ${key==='own'?'我方':'敌方'} · ${esc(f.name)}</h3><p>${esc(f.summary)}</p><small>${key==='own'?'兵力来自本方部署':'粗略情报；具体位置、弹药与损伤需进入战场侦察'}</small></section>`;}).join('')}</div>`;}
   function intro(){
     const t=SCENARIOS[draft.scenario];
-    return `<div class="flow-split flow-intro"><section><h1 tabindex="-1">${esc(scenarioName(draft))}</h1><p class="flow-subtitle">${esc(t.subtitle)}</p><div class="flow-meta"><div><small>难度 / 模式</small><span>${esc(t.difficulty||modeName(draft))}</span></div><div><small>时限</small><span>${esc(duration(draft))}</span></div><div><small>兵力</small><span>${fixed(draft)?'固定编队':'可调整部署'}</span></div></div><p class="flow-body-copy">${esc(t.brief)}</p><h2>行动要点</h2><ul class="flow-points">${missionGoals(draft).slice(0,2).map(g=>`<li>${esc(g[0])}</li>`).join('')}</ul><p class="flow-note">${fixed(draft)?'历史背景改编 · 兵力与时限经玩法调整':'虚构演练海域 · 数值用于游戏推演'}</p></section>${chartPanel(false)}</div>`;
+    return `<div class="flow-split flow-intro"><section><h1 tabindex="-1">${esc(scenarioName(draft))}</h1><p class="flow-subtitle">${esc(t.subtitle)}</p><div class="flow-meta"><div><small>难度 / 模式</small><span>${esc(t.difficulty||modeName(draft))}</span></div><div><small>时限</small><span>${esc(duration(draft))}</span></div><div><small>兵力</small><span>${fixed(draft)?'固定编队':'可调整部署'}</span></div></div>${sideChoices()}<p class="flow-body-copy">${esc(scenarioBrief(draft))}</p>${intelPanel()}<h2>行动要点</h2><ul class="flow-points">${missionGoals(draft).slice(0,2).map(g=>`<li>${esc(g[0])}</li>`).join('')}</ul><p class="flow-note">${fixed(draft)?'历史背景改编 · 兵力与时限经玩法调整':'虚构演练海域 · 数值用于游戏推演'}</p></section>${chartPanel(false)}</div>`;
   }
   function chartPanel(deployment){
-    return `<figure class="flow-map-panel">${briefingChart(draft,{deployment})}<figcaption><span>${esc(mapName(draft))}</span><span>□ 友方${deployment&&showOpposing(draft)?' · ◇ 对方部署':''} · 海里坐标</span></figcaption></figure>`;
+    return `<figure class="flow-map-panel">${briefingChart(draft,{deployment})}<figcaption><span>${esc(mapName(draft))}</span><span>□ 友方${deployment&&showOpposing(draft)?' · ◇ 对方部署':''} · 海里坐标</span><span class="flow-map-key">实线：已知部署 · 虚线：任务／搜索海域 · 敌舰阵位需侦察</span></figcaption></figure>`;
+  }
+  function conditionSettings(){
+    const options=(values,selected)=>Object.entries(values).map(([key,v])=>`<option value="${key}" ${selected===key?'selected':''}>${esc(v.name||v)}</option>`).join('');
+    return `<div class="flow-ai-settings"><h2>作战条件</h2><div class="flow-settings-grid"><label>海图风格<select data-flow-presentation="chartTheme">${options(CHART_THEMES,draft.chartTheme)}</select></label>${draft.scenario==='ww2sandbox'?`<label>自定义编组<select data-flow-preset ${readOnly?'disabled':''}>${options(WW2_PRESETS,draft.ww2Preset)}</select></label>`:''}<label>天气<select data-flow-condition="weather" ${readOnly?'disabled':''}>${options(WEATHER,draft.weather)}</select></label><label>昼夜<select data-flow-condition="timeOfDay" ${readOnly?'disabled':''}>${options({day:'白天',night:'夜晚'},draft.timeOfDay)}</select></label>${!isAutoBattle(draft)?`<label>作战 AI 强度<select data-flow-condition="aiDifficulty" ${readOnly?'disabled':''}>${options(AI_LEVELS,draft.aiDifficulty)}</select></label>`:''}</div><p class="flow-note">天气与昼夜影响目视搜索和舰炮精度。${Object.values(AI_LEVELS).map(d=>`${esc(d.name)}：${esc(d.description)}`).join(' ')}</p></div>`;
   }
   function aiSettings(){
     const a=draft.automation;
-    return `<div class="flow-ai-settings"><h2>AI 对战设置</h2><div class="flow-settings-grid">${['blue','red'].map(side=>`<label>${esc(factionName(draft,side))} AI 战术<select data-flow-config="${side}Doctrine" ${readOnly?'disabled':''}>${Object.entries(AI_DOCTRINES).map(([key,d])=>`<option value="${key}" ${a[`${side}Doctrine`]===key?'selected':''}>${esc(d.name)}</option>`).join('')}</select></label>`).join('')}<label>推演时限<select data-flow-config="timeLimit" ${readOnly?'disabled':''}>${[...new Set([5,15,30,60,120,240,a.timeLimit/60])].sort((a,b)=>a-b).map(m=>`<option value="${m*60}" ${a.timeLimit===m*60?'selected':''}>${m} 分钟</option>`).join('')}</select></label><label>随机种子<input data-flow-config="seed" aria-label="随机种子" type="number" min="0" max="4294967295" step="1" value="${a.seed}" ${readOnly?'disabled':''}></label></div><p class="flow-note">相同部署、种子与战术产生可重复的推演结果。</p></div>`;
+    return `<div class="flow-ai-settings"><h2>指挥与 AI 设置</h2><div class="flow-settings-grid"><label>指挥模式<select data-flow-config="control" ${readOnly?'disabled':''}><option value="player" ${a.control==='player'?'selected':''}>玩家指挥所选阵营</option><option value="auto" ${a.control!=='player'?'selected':''}>双方 AI 自主作战</option></select></label>${['blue','red'].map(side=>`<label>${esc(factionName(draft,side))} AI 战术<select data-flow-config="${side}Doctrine" ${readOnly?'disabled':''}>${Object.entries(AI_DOCTRINES).map(([key,d])=>`<option value="${key}" ${a[`${side}Doctrine`]===key?'selected':''}>${esc(d.name)}</option>`).join('')}</select></label>`).join('')}${['blue','red'].map(side=>`<label>${esc(factionName(draft,side))} AI 强度<select data-flow-config="${side}Difficulty" ${readOnly?'disabled':''}>${Object.entries(AI_LEVELS).map(([key,d])=>`<option value="${key}" ${a[`${side}Difficulty`]===key?'selected':''}>${esc(d.name)}</option>`).join('')}</select></label>`).join('')}<label>推演时限<select data-flow-config="timeLimit" ${readOnly?'disabled':''}>${[...new Set([5,15,30,60,120,240,a.timeLimit/60])].sort((a,b)=>a-b).map(m=>`<option value="${m*60}" ${a.timeLimit===m*60?'selected':''}>${m} 分钟</option>`).join('')}</select></label><label>随机种子<input data-flow-config="seed" aria-label="随机种子" type="number" min="0" max="4294967295" step="1" value="${a.seed}" ${readOnly?'disabled':''}></label></div><p class="flow-note">相同部署、种子与战术产生可重复的推演结果。</p></div>`;
   }
   function details(){
     const t=SCENARIOS[draft.scenario],w=worldFor(draft),theatre=getBattleTheatre(draft);
-    return `<h1 tabindex="-1">剧本细节</h1><div class="flow-split flow-details"><section><div class="flow-text-section"><h2>${fixed(draft)?'历史背景':'演练背景'}</h2><p>${esc(t.history||t.brief)}</p></div><div class="flow-text-section"><h2>${fixed(draft)?'剧本改编':'指挥与规则'}</h2><p>${esc(t.adaptation||(isAutoBattle(draft)?'双方 AI 使用各自发现的有效航迹决策。进入传感器和武器允许的范围后交战；全局观察不会向 AI 提供隐藏信息。':'可以在部署阶段配置单位、挂载和编队。进入战场后，使用暂停、航点、传感器与自动交战控制海空协同。'))}</p></div>${isAutoBattle(draft)?aiSettings():''}${t.sourceURL?`<a class="flow-source" href="${esc(t.sourceURL)}" target="_blank" rel="noopener noreferrer">资料来源：${esc(t.sourceTitle)} ↗</a>`:''}</section><aside class="flow-info-panel"><h2>${icon(fixed(draft)?'book':'grid')} 任务资料</h2>${t.date?row('行动时间',t.date):''}${row('作战区域',mapName(draft))}${row('地图类型',isWW2(draft)?'简化地理海图':fixed(draft)?'真实海岸线':'虚构演练海域')}${row('海域尺寸',`${number(w.width)} × ${number(w.height)} 海里`)}${theatre?row('初始间隔',`≥ ${theatre.initialSeparationKm} 公里`):''}<div class="flow-tip"><h3>指挥提示</h3><p>先建立有效航迹，再组织交战。</p></div>${isWW2(draft)?'<p class="flow-note">海岸轮廓经简化，初始阵位为战术化改编，并非精确历史海图。</p>':fixed(draft)?'<p class="flow-note">使用 Natural Earth 现代海岸线裁切，地图不是当年航海图。</p>':''}</aside></div>`;
+    return `<h1 tabindex="-1">剧本细节</h1><div class="flow-split flow-details"><section><div class="flow-text-section"><h2>${fixed(draft)?'历史背景':'演练背景'}</h2><p>${esc(t.history||scenarioBrief(draft))}</p></div><div class="flow-text-section"><h2>${fixed(draft)?'剧本改编':'指挥与规则'}</h2><p>${esc(t.adaptation||(isAutoBattle(draft)?'双方 AI 使用各自发现的有效航迹决策。进入传感器和武器允许的范围后交战；全局观察不会向 AI 提供隐藏信息。':'可以在部署阶段配置单位、挂载和编队。进入战场后，使用暂停、航点、传感器与自动交战控制海空协同。'))}</p></div>${conditionSettings()}${isAutoBattle(draft)?aiSettings():''}${t.sourceURL?`<a class="flow-source" href="${esc(t.sourceURL)}" target="_blank" rel="noopener noreferrer">资料来源：${esc(t.sourceTitle)} ↗</a>`:''}</section><aside class="flow-info-panel"><h2>${icon(fixed(draft)?'book':'grid')} 任务资料</h2>${t.date?row('行动时间',t.date):''}${row('作战区域',mapName(draft))}${row('地图类型',isWW2(draft)?'简化地理海图':fixed(draft)?'真实海岸线':'虚构演练海域')}${row('海域尺寸',`${number(w.width)} × ${number(w.height)} 海里`)}${theatre?row('初始间隔',`≥ ${theatre.initialSeparationKm} 公里`):''}<div class="flow-tip"><h3>指挥提示</h3><p>先建立有效航迹，再组织交战。</p></div>${isWW2(draft)?'<p class="flow-note">海岸轮廓经简化，初始阵位为战术化改编，并非精确历史海图。</p>':fixed(draft)?'<p class="flow-note">使用 Natural Earth 现代海岸线裁切，地图不是当年航海图。</p>':''}</aside></div>`;
   }
   function deployment(){
     const units=friendly(draft),showRed=showOpposing(draft);
     const roster=(side,list)=>`<section class="flow-roster"><h2>${esc(factionName(draft,side))}编队 <small>/ ${list.length} 个单位</small></h2><div>${list.map((u,i)=>`<div class="flow-roster-row ${side==='red'?'is-red':''}"><span class="flow-unit-number">${String(i+1).padStart(2,'0')}</span>${icon(TYPES[u.type].domain)}<span><strong>${esc(u.name)}</strong><small>${esc(TYPES[u.type].name)}</small></span></div>`).join('')||'<p class="flow-note">尚无单位，进入海图后部署。</p>'}</div>${!fixed(draft)?`<p class="flow-note">剩余部署点 ${side==='blue'?draft.budget:draft.redBudget}</p>`:'<p class="flow-note">合成编队与抽象航空单位</p>'}</section>`;
-    return `<h1 tabindex="-1">部署情况</h1><p class="flow-subtitle">${fixed(draft)?'固定兵力 · 本任务无需额外部署':readOnly?'当前编队与已知部署':'初始编队 · 可进入战场调整部署与挂载'}</p><div class="flow-split flow-deployment">${chartPanel(true)}<aside class="flow-roster-column">${roster('blue',units)}${showRed?roster('red',draft.units.filter(u=>u.side==='red'&&u.hp>0&&!u.exited)):'<section class="flow-enemy-info"><h2>敌方情报</h2><p>目标动向需进入任务后侦察确认。</p></section>'}${!fixed(draft)&&!readOnly?'<button class="flow-secondary" data-flow-action="deploy">进入战场调整部署 →</button>':''}</aside></div>`;
+    return `<h1 tabindex="-1">部署情况</h1><p class="flow-subtitle">${fixed(draft)?'固定兵力 · 本任务无需额外部署':readOnly?'当前编队与已知部署':'初始编队 · 可进入战场调整部署与挂载'}</p><div class="flow-split flow-deployment">${chartPanel(true)}<aside class="flow-roster-column">${roster(playerSide(draft),units)}${showRed?roster(opposingSide(playerSide(draft)),draft.units.filter(u=>u.side!==playerSide(draft)&&u.hp>0&&!u.exited)):'<section class="flow-enemy-info"><h2>敌方情报</h2><p>目标动向需进入任务后侦察确认。</p></section>'}${!fixed(draft)&&!readOnly?'<button class="flow-secondary" data-flow-action="deploy">进入战场调整部署 →</button>':''}</aside></div>`;
   }
   function objectives(){
     const t=SCENARIOS[draft.scenario];
-    return `<h1 tabindex="-1">任务目标</h1><p class="flow-subtitle">${esc(scenarioName(draft))}${unrestricted(draft)?' / 自由演练':''}</p><div class="flow-split flow-objectives"><ol class="flow-goals">${missionGoals(draft).map((g,i)=>`<li><span class="flow-goal-number">${String(i+1).padStart(2,'0')}</span><div><h2>${esc(g[0])}</h2><p>${esc(g[1])}</p></div></li>`).join('')}</ol><aside class="flow-info-panel"><h2>任务准备${!readOnly&&combatReady(draft)?'<small class="flow-ready">● 已就绪</small>':''}</h2>${row('任务时限',duration(draft))}${row('模式',modeName(draft))}${row('指挥',isAutoBattle(draft)?'双方 AI 指挥':'手动指挥')}${row('兵力',fixed(draft)?'固定编队':'可调整部署')}<div class="flow-tip"><p>进入战场后可随时暂停下令。</p><p>${t.order?`任务开始后，可使用“${esc(t.order)}”指令。`:isAutoBattle(draft)?'可在海图部署阶段继续配置挂载与战术。':'可在海图部署阶段继续配置单位与挂载。'}</p></div>${!combatReady(draft)?'<p class="flow-note">请先在海图为双方部署战斗单位。</p>':''}</aside></div>`;
+    return `<h1 tabindex="-1">任务目标</h1><p class="flow-subtitle">${esc(scenarioName(draft))}${unrestricted(draft)?' / 自由演练':''}</p><div class="flow-split flow-objectives"><ol class="flow-goals">${missionGoals(draft).map((g,i)=>`<li><span class="flow-goal-number">${String(i+1).padStart(2,'0')}</span><div><h2>${esc(g[0])}</h2><p>${esc(g[1])}</p></div></li>`).join('')}</ol><aside class="flow-info-panel"><h2>任务准备${!readOnly&&combatReady(draft)?'<small class="flow-ready">● 已就绪</small>':''}</h2>${row('任务时限',duration(draft))}${row('模式',modeName(draft))}${row('扮演阵营',factionInfo(draft,playerSide(draft)).flag+' '+factionName(draft,playerSide(draft)))+row('指挥',isAutoBattle(draft)&&draft.automation.control!=='player'?'双方 AI 指挥':'玩家指挥所选阵营')}${row('兵力',fixed(draft)?'固定编队':'可调整部署')}<div class="flow-tip"><p>进入战场后可随时暂停下令。</p><p>${t.order?`任务开始后，可使用“${playerSide(draft)==='red'&&!isWW2(draft)?'执行本方任务':esc(t.order)}”指令。`:isAutoBattle(draft)?'可在海图部署阶段继续配置挂载与战术。':'可在海图部署阶段继续配置单位与挂载。'}</p></div>${!combatReady(draft)?'<p class="flow-note">请先在海图为双方部署战斗单位。</p>':''}</aside></div>`;
   }
   function briefing(){
     const last=page===3,action=readOnly?'resume':combatReady(draft)?'launch':'deploy';
@@ -195,12 +221,16 @@ export function createScenarioFlow({root,getState,onPause,onLaunch,onResume,hasS
   }
   root.addEventListener('click',e=>{
     const b=e.target.closest('button');if(!b)return;e.stopPropagation();
+    if(b.dataset.flowSide){if(!readOnly){setPlayerSide(draft,b.dataset.flowSide);if(isAutoBattle(draft))configureAutoBattle(draft,{control:'player'});render(`[data-flow-side="${b.dataset.flowSide}"]`);}return;}
     if(b.dataset.flowMode){select(b.dataset.flowMode);screen='select';render(`[data-flow-mode="${mode}"]`);}
     else if(b.dataset.flowChoice){select(mode,b.dataset.flowChoice);render(`[data-flow-choice="${choice}"]`);}
     else if(b.dataset.flowPage!==undefined){page=Number(b.dataset.flowPage);render(`[data-flow-page="${page}"]`);}
     else if(b.dataset.flowAction)action(b.dataset.flowAction);
   });
   root.addEventListener('change',e=>{
+    if(e.target.hasAttribute('data-flow-preset')){e.stopPropagation();if(!readOnly){const r=configureWW2Sandbox(draft,e.target.value);if(!r.ok)onError(r.error);}return;}
+    const presentation=e.target.dataset.flowPresentation;if(presentation){e.stopPropagation();const options={[presentation]:e.target.value};setPresentation(draft,options);onPresentation(options);return;}
+    const condition=e.target.dataset.flowCondition;if(condition){e.stopPropagation();if(!readOnly){const r=setBattleConditions(draft,{[condition]:e.target.value});if(!r.ok)onError(r.error);}return;}
     const key=e.target.dataset.flowConfig;if(!key||readOnly||!isAutoBattle(draft))return;
     e.stopPropagation();const value=['seed','timeLimit'].includes(key)?Number(e.target.value):e.target.value;
     if(e.target.value===''||!e.target.checkValidity()){onError('请输入 0–4294967295 之间的整数随机种子');e.target.value=draft.automation[key];return;}

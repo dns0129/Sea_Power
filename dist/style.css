@@ -134,3 +134,27 @@ dialog.loadout-dialog{width:min(760px,calc(100vw - 30px))}.custom-loadout-entry{
 .unit-command-card button:disabled,.unit-command-card select:disabled{opacity:.45;cursor:default}
 .unit-combat-alert,.unit-critical-alert{padding:9px;border:1px solid #a7794c;background:#44302066;color:#e1bd83;font-size:11px;line-height:1.6}
 .unit-critical-alert{border-color:#9d655d;color:#e6aba1;background:#44252766}
+
+/* 群体指挥与可解释的战斗状态。 */
+.group-control{border:1px solid #45695f;background:#162d2a80;padding:12px;margin:12px 0;border-radius:5px}.group-control p{margin:5px 0 12px;color:var(--accent)}.group-control small,.combat-stats small{display:block;line-height:1.8;color:var(--muted);font-size:10px}.group-control .section-label{margin:0 0 8px}.group-control .section-label button{font-size:9px;padding:2px 5px}.group-actions{display:flex;flex-wrap:wrap;gap:5px;margin:10px 0}.group-actions button{border:1px solid #3d5b53;padding:6px;font-size:10px}.combat-stats{display:grid;gap:7px;border-bottom:1px solid var(--line);padding:12px 0;margin-bottom:12px}.combat-stats b{color:var(--accent)}.combat-stats span{font-size:10px;color:var(--muted);line-height:1.8}#map{touch-action:none}
+
+/* 海图主题和任务页保持同一阅读对比度。 */
+html[data-chart-theme="light"]{color-scheme:light;--bg:#eff4f7;--panel:#fff;--text:#233d4b;--line:#c9d5dc;--muted:#526e80;--accent:#126d61;--red:#b73543}
+html[data-chart-theme="light"] body{background:var(--bg);color:var(--text)}
+html[data-chart-theme="light"] :is(.hud-widget,.hud-dock,dialog,.widget-heading,.dialog-head,.dialog-body,.flow-header,.flow-footer,.flow-info-panel,.flow-roster,.flow-enemy-info,.flow-choice,.flow-mode-card,.flow-entry-card,.group-control,.readiness-card,.equipment-card,.result,.flow-force-card){background:#fbfdfe;color:var(--text);border-color:var(--line)}
+html[data-chart-theme="light"] :is(select,input){background:#f3f7fa;color:#203e4d;border-color:#b8cbd5}
+html[data-chart-theme="light"] button:hover{background:#dfeceF;color:#153f4a}
+html[data-chart-theme="light"] :is(.unit-row.selected,.flow-faction.is-selected,.flow-choice.is-selected){background:#e0f0eb;border-color:#398f7a}
+html[data-chart-theme="light"] :is(.unit-row strong,.unit-title,.flow-hero h1,.flow-side-choice h2,.flow-force-card h3){color:#244654}
+html[data-chart-theme="light"] :is(.role-note,.unit-description,.position-note,.sensor-note,.flow-note,.flow-subtitle,.flow-body-copy,.flow-text-section p,.flow-choice small,.flow-info-row,.flow-roster-row small){color:#526b7c}
+html[data-chart-theme="light"] .flow-chart text{fill:#476779}
+html[data-chart-theme="light"] .primary{background:#166e61;color:#fff}
+html[data-chart-theme="light"] :is(.healthbar,.fuelbar){background:#cadbd6}
+html[data-chart-theme="ocean"]{--bg:#0c2230;--panel:#153546;--line:#365d6f;--text:#d6e9ef;--accent:#8ddfc7}
+html[data-chart-theme="ocean"] .hud-widget{background:#123247ee}
+
+html[data-chart-theme="light"] :is(.flow-subtitle,.flow-goals p,.flow-entry-description,.flow-breadcrumb,.flow-map-panel figcaption,.flow-enemy-info p,.flow-mode-card small,.flow-selected-summary p,.flow-text-section h2){color:var(--muted)}
+
+html[data-chart-theme="light"] :is(.unit-command-card,.unit-command-actions button,.unit-lock-button){background:#f3f8fa;color:var(--text);border-color:var(--line)}
+html[data-chart-theme="light"] .unit-command-actions button.active{background:#166e61;color:#fff}
+html[data-chart-theme="light"] :is(.unit-command-card p,.unit-command-card small,.unit-lock-label){color:var(--muted)}

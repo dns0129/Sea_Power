@@ -1,4 +1,4 @@
-import {PAYLOAD_WEIGHTS} from './modern-catalog.js?v=0.12.0';
+import {PAYLOAD_WEIGHTS} from './modern-catalog.js?v=0.13.0';
 
 // Counts and capacity costs are game abstractions, not real loading instructions.
 export const CUSTOM_MISSIONS=Object.freeze({general:'通用',air:'制空／防空',naval:'对海',asw:'反潜',strike:'对地',sead:'压制',close:'近距支援'});

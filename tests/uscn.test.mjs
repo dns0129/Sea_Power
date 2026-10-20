@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import * as E from '../dist/engine.js?v=0.12.0';
+import * as E from '../dist/engine.js?v=0.13.0';
 
 const KM_PER_NM=1.852;
 const presets=['surface','carrier','asw'];
@@ -17,7 +17,7 @@ function advance(s,seconds){for(let remaining=seconds;remaining>0&&s.phase==='ru
 test('美中完整预案在扩展海图上从最近 250 公里阵位开始',()=>{
   for(const preset of presets){
     const s=E.createAutoBattle(preset),theatre=E.getBattleTheatre(s),world=E.worldFor(s);
-    assert.equal(s.mapId,'uscn250');assert.equal(s.version,7);
+    assert.equal(s.mapId,'uscn250');assert.equal(s.version,9);
     assert.equal(world.width,440);assert.equal(world.height,260);
     assert.equal(theatre.initialSeparationKm,250);
     assert.ok(Math.abs(theatre.initialSeparationNm-250/KM_PER_NM)<1e-9);
@@ -127,7 +127,7 @@ test('此前 v6 的 500 公里美中存档载入、继续和重赛保持原阵�
   for(const unit of legacy.units)unit.x+=unit.side==='blue'?-shift:shift;
   const initial=legacy.units.map(u=>[u.id,u.type,u.side,u.x,u.y,u.weapons]);
   const loaded=load(legacy);
-  assert.equal(loaded.version,7);assert.equal(loaded.mapId,'uscn500');
+  assert.equal(loaded.version,9);assert.equal(loaded.mapId,'uscn500');
   assert.equal(E.getBattleTheatre(loaded).initialSeparationKm,500);
   assert.ok(Math.abs(nearestKm(loaded)-500)<1e-9);
   assert.equal(E.getBattleReport(loaded).theatre.id,'uscn500');
@@ -149,7 +149,7 @@ test('v5 自动对战继续使用原地图，升级后重赛仍保留原部署',
   assert.ok(E.configureAutoBattle(s).ok);add(s,'fighter','blue',70,90);add(s,'fighter','red',170,90);
   const legacy=raw(s);legacy.version=5;legacy.scenario='autobattle';legacy.mapId=null;
   const loaded=load(legacy);
-  assert.equal(loaded.version,7);assert.equal(loaded.mapId,null);assert.equal(E.getBattleTheatre(loaded),null);
+  assert.equal(loaded.version,9);assert.equal(loaded.mapId,null);assert.equal(E.getBattleTheatre(loaded),null);
   assert.equal(E.worldFor(loaded).width,240);assert.equal(E.worldFor(loaded).height,170);
   assert.equal(E.factionName(loaded,'blue'),'蓝方');assert.equal(E.factionName(loaded,'red'),'红方');
   assert.deepEqual(loaded.units.map(u=>[u.type,u.x,u.y,u.weapons]),legacy.units.map(u=>[u.type,u.x,u.y,u.weapons]));
@@ -171,14 +171,17 @@ test('250 公里开局遵守原有射程，双方能自主搜索并实际交火'
   assert.ok(load(raw(s)));
 });
 
-test('250 公里反潜预案在默认两小时内搜索接敌并由双方实际发射鱼雷',()=>{
+test('250 公里反潜预案在默认两小时内交战，受损平台撤退并保留有限战报',()=>{
   const s=E.createAutoBattle('asw');
   assert.equal(s.automation.timeLimit,7200);assert.ok(E.startAutoBattle(s).ok);
   advance(s,7200);
   assert.equal(s.phase,'ended');assert.equal(s.time,7200);
   const report=E.getBattleReport(s);
   assert.match(report.reason,/时限/);
-  for(const side of ['blue','red'])assert.ok(report[side].spent.torpedo>0,`${side} did not acquire and attack a submarine`);
+  // A damaged ASW aircraft may now withdraw before releasing its torpedoes.
+  for(const side of ['blue','red'])assert.ok(report[side].shots>0,`${side} did not engage observed contacts`);
+  for(const side of ['blue','red'])assert.ok(s.units.some(u=>u.side===side&&E.TYPES[u.type].sonar>0&&/反潜|声呐|撤退|返航/.test(u.ai?.order||'')));
+  assert.ok(report.timeline.some(e=>/受损撤退|保存受损/.test(e.message)));
   const saved=load(raw(s));
   assert.equal(saved.mapId,'uscn250');assert.equal(saved.phase,'ended');
   assert.deepEqual(E.getBattleReport(saved),report);

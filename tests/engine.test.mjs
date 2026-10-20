@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-import {createState,start,step,scan,visibleContacts,fire,fireCheck,setRoute,setSpeed,setAltitude,returnToBase,addUnit,removeUnit,formFleet,serialize,deserialize,checkOutcome,unitById,TYPES,WEAPONS,inLand,clearPath,radarHorizon,sensorRange,missileVisible,maxSpeed} from '../dist/engine.js?v=0.12.0';
+import {createState,start,step,scan,visibleContacts,fire,fireCheck,setRoute,setSpeed,setAltitude,returnToBase,addUnit,removeUnit,formFleet,serialize,deserialize,checkOutcome,unitById,TYPES,WEAPONS,inLand,clearPath,radarHorizon,sensorRange,missileVisible,maxSpeed} from '../dist/engine.js?v=0.13.0';
 
 function quiet(s){for(const u of s.units){u.autoEngage=false;u.autoDefense=false;u.radar=u.sonar=u.esm=false;u.route=[];}return s;}
 function confirm(s,seconds=12){for(let t=0;t<seconds;t+=3){s.time+=3;scan(s);}return s;}
@@ -172,7 +172,7 @@ test('格式、越界、弹药、燃油、原型类型与坏引用不能导入',
 });
 test('旧版战局迁移空空弹药与在途武器，保留预算并暂停',()=>{
   const fixture=readFileSync(new URL('./fixtures/legacy-v1.json',import.meta.url),'utf8'),s=deserialize(fixture);
-  assert.equal(s.version,7);assert.equal(s.paused,true);assert.equal(s.budget,38);const fighter=s.units.find(u=>u.type==='fighter');assert.equal(fighter.weapons.aam,6);assert.equal(fighter.weapons.sam,0);assert.ok(fighter.fuel>0);assert.ok(s.missiles.length);assert.ok(s.missiles[0].aim);
+  assert.equal(s.version,9);assert.equal(s.paused,true);assert.equal(s.budget,38);const fighter=s.units.find(u=>u.type==='fighter');assert.equal(fighter.weapons.aam,6);assert.equal(fighter.weapons.sam,0);assert.ok(fighter.fuel>0);assert.ok(s.missiles.length);assert.ok(s.missiles[0].aim);
 });
 test('旧版远距机载反舰弹升级后可二次保存载入，不受新挂载射程截断',()=>{
   const raw=JSON.parse(readFileSync(new URL('./fixtures/legacy-v1.json',import.meta.url),'utf8'));

@@ -1,10 +1,13 @@
-import {missionControlled} from './unit-orders.js?v=0.12.0';
-import {WW2_SCENARIOS,isWW2Scenario} from './ww2-data.js?v=0.12.0';
-import {geographicMap,geoToWorld} from './geography.js?v=0.12.0';
-import {isSurfaceWW2,initializeSurfaceWW2,surfaceWW2Order,commandSurfaceWW2,updateSurfaceWW2,surfaceWW2Objectives,restoreSurfaceWW2} from './ww2-surface.js?v=0.12.0';
+import {missionControlled} from './unit-orders.js?v=0.13.0';
+import {playerSide,playerOutcome} from './factions.js?v=0.13.0';
+import {WW2_SCENARIOS,isWW2Scenario} from './ww2-data.js?v=0.13.0';
+import {geographicMap,geoToWorld} from './geography.js?v=0.13.0';
+import {AI_LEVELS,aiLevel} from './tactical-rules.js?v=0.13.0';
 
-export const ww2Zone=s=>{const z=WW2_SCENARIOS[s.scenario].zone;return {...geoToWorld(geographicMap(s),z.lon,z.lat),radius:z.radius,name:z.name};};
-export const ww2Search=s=>geoToWorld(geographicMap(s),...WW2_SCENARIOS[s.scenario].search);
+import {isSurfaceWW2,initializeSurfaceWW2,surfaceWW2Order,commandSurfaceWW2,updateSurfaceWW2,surfaceWW2Objectives,restoreSurfaceWW2} from './ww2-surface.js?v=0.13.0';
+
+export const ww2Zone=s=>{if(s.scenario==='ww2sandbox')return {x:120,y:85,radius:12,name:'公共演练海域'};const z=WW2_SCENARIOS[s.scenario].zone;return {...geoToWorld(geographicMap(s),z.lon,z.lat),radius:z.radius,name:z.name};};
+export const ww2Search=s=>s.scenario==='ww2sandbox'?{x:120,y:85}:geoToWorld(geographicMap(s),...WW2_SCENARIOS[s.scenario].search);
 const distance=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
 const live=u=>u.hp>0&&!u.exited;
 const carrier=(u,api)=>api.types[u.type].ww2Role==='carrier';
@@ -12,6 +15,7 @@ const operational=(u,api)=>live(u)&&u.hp>=api.types[u.type].hp*.4;
 
 function searchRoute(s,u){
   const n=Number(u.id.slice(1))%3;
+  if(s.scenario==='ww2sandbox')return [[120,55],[u.side==='blue'?175:65,90],[120,130],[u.side==='blue'?165:75,110]].map(([x,y])=>({x,y}));
   // Intelligence sectors are scenario knowledge, never enemy unit coordinates.
   const legs=u.side==='blue'?
     n===0?[[120,150],[65,115],[100,70],[165,95],[180,170]]:
@@ -55,15 +59,15 @@ export function ww2Order(s,key,api){
   if(!isWW2Scenario(s)||s.phase!=='running')return {ok:false,error:'请先开始二战任务'};
   if(isSurfaceWW2(s))return surfaceWW2Order(s,key,api);
   if(!['plan','search','cap','strike','manual'].includes(key))return {ok:false,error:'无效的二战作战指令'};
-  if(key==='strike'&&!strikeReports(s,'blue',api).some(c=>c.domain==='surface'))return {ok:false,error:'尚无可用敌舰报告，请先派侦察机搜索'};
+  if(key==='strike'&&!strikeReports(s,playerSide(s),api).some(c=>c.domain==='surface'))return {ok:false,error:'尚无可用敌舰报告，请先派侦察机搜索'};
   if(key==='manual')s.mission.orders=[];
   else s.mission.orders=[...new Set([...s.mission.orders,key])];
-  const labels={plan:'航空作战计划已启用：搜索 → 战斗巡逻 → 发现后组织攻击波',search:'展开 PBY 与舰载侦察搜索',cap:'组织航母战斗巡逻与目视截击',strike:'根据最近敌舰报告组织舰载攻击波',manual:'已转为手动指挥，保留已下达航线'};
+  const labels={plan:s.scenario==='ww2sandbox'?'作战计划已启用：编队搜索 → 接敌 → 舰炮、鱼雷与反潜协同':'航空作战计划已启用：搜索 → 战斗巡逻 → 发现后组织攻击波',search:'展开 PBY 与舰载侦察搜索',cap:'组织航母战斗巡逻与目视截击',strike:'根据最近敌舰报告组织舰载攻击波',manual:'已转为手动指挥，保留已下达航线'};
   api.log(s,labels[key]);commandWW2(s,api);return {ok:true};
 }
 
 function strikeReports(s,side,api){
-  return api.visibleContacts(s,side).filter(c=>c.domain==='surface'&&c.classification==='carrier'&&!c.disabled&&s.time-c.time<=900);
+  return api.visibleContacts(s,side).filter(c=>c.domain==='surface'&&(s.scenario==='ww2sandbox'||c.classification==='carrier')&&!c.disabled&&s.time-c.time<=900);
 }
 function targetReport(s,u,api){
   const reports=strikeReports(s,u.side,api).sort((a,b)=>a.id.localeCompare(b.id));
@@ -76,7 +80,8 @@ export function commandWW2(s,api){
   if(isSurfaceWW2(s))return commandSurfaceWW2(s,api);
   const orders=s.mission.orders,plan=orders.includes('plan');
   for(const base of [...s.units].filter(u=>live(u)&&missionControlled(u)&&api.types[u.type].deck)){
-    const red=base.side==='red',search=red||plan||orders.includes('search'),cap=red||plan||orders.includes('cap'),strike=red||plan||orders.includes('strike');
+    if(s.time<(base.nextDeckDecision||0))continue;const level=aiLevel(s,base.side);base.nextDeckDecision=s.time+level.reaction;
+    const red=base.side==='red',autonomous=base.side!==playerSide(s),search=autonomous||plan||orders.includes('search'),cap=autonomous||plan||orders.includes('cap'),strike=autonomous||plan||orders.includes('strike');
     const reports=strikeReports(s,base.side,api);
     const candidates=Object.keys(base.airwing).filter(type=>base.airwing[type]>0).sort((a,b)=>{
       const priority=type=>({scout:0,fighter:1,dive:2,torpedo:3}[api.types[type].ww2Role]??9);return priority(a)-priority(b);
@@ -85,23 +90,25 @@ export function commandWW2(s,api){
       const role=api.types[type].ww2Role;
       // Only Akagi/Kaga send one preliminary bombing group against Midway;
       // the remaining attack groups wait for a carrier sighting.
-      const islandRaid=red&&role==='dive'&&['ww2_akagi','ww2_kaga'].includes(base.type)&&base.airwing[type]===2;
+      const islandRaid=s.scenario==='midway42'&&red&&role==='dive'&&['ww2_akagi','ww2_kaga'].includes(base.type)&&base.airwing[type]===2;
       if(!(role==='scout'&&search||role==='fighter'&&cap||['dive','torpedo'].includes(role)&&strike&&(reports.length||islandRaid)))continue;
       const r=api.launchDeck(s,base.id,type);
-      if(r.ok){r.unit.autoEngage=role!=='scout';r.unit.radar=false;r.unit.esm=false;if(!red&&role==='fighter')r.unit.ai={ww2Task:'escort'};}
+      if(r.ok){r.unit.autoEngage=role!=='scout';r.unit.radar=false;r.unit.esm=false;if(level.coordination&&role==='fighter')r.unit.ai={ww2Task:'escort'};}
       break;
     }
   }
   for(const u of s.units.filter(u=>live(u)&&missionControlled(u)&&api.types[u.type].domain==='air'&&api.airborne(u)&&u.flightState!=='returning')){
     const t=api.types[u.type],role=t.ww2Role,red=u.side==='red';
-    if(!red&&!plan&&!orders.includes(role==='scout'?'search':role==='fighter'?'cap':'strike'))continue;
+    if(!missionControlled(u)||s.time<(u.nextDecision||0))continue;const level=aiLevel(s,u.side);u.nextDecision=s.time+level.reaction;
+    if(u.side===playerSide(s)&&!plan&&!orders.includes(role==='scout'?'search':role==='fighter'?'cap':'strike'))continue;
+    if(u.hp/t.hp<level.retreat||u.aircraft<=Math.floor(t.squadronSize*(level===AI_LEVELS.ace?.5:level===AI_LEVELS.professional?.25:0))){api.returnToBase(s,u.id);continue;}
     if(role==='scout'){
       const report=strikeReports(s,u.side,api).sort((a,b)=>distance(u,a)-distance(u,b))[0];
       if(report){
         // Shadow at visual stand-off distance. Radio fixes remain observations;
         // losing this report does not magically update the carrier's position.
         const angle=Math.atan2(u.x-report.x,u.y-report.y)+.25,radius=t.eoRange-.8;
-        u.route=[{x:Math.max(1,Math.min(364,report.x+Math.sin(angle)*radius)),y:Math.max(1,Math.min(299,report.y+Math.cos(angle)*radius))}];
+        u.route=[{x:Math.max(1,Math.min(s.scenario==='ww2sandbox'?239:364,report.x+Math.sin(angle)*radius)),y:Math.max(1,Math.min(s.scenario==='ww2sandbox'?169:299,report.y+Math.cos(angle)*radius))}];
       }else if(!u.route.length)u.route=searchRoute(s,u);
       u.speed=Math.round(t.speed*.85);continue;
     }
@@ -110,7 +117,7 @@ export function commandWW2(s,api){
     u.autoEngage=true;u.speed=Math.round(t.speed*.88);
     if(role==='fighter'){
       const home=api.unitById(s,u.home?.baseId)||u;
-      const attack=u.ai?.ww2Task==='escort'?s.units.filter(v=>v.side===u.side&&v.originDeck===u.originDeck&&live(v)&&api.airborne(v)&&v.flightState==='airborne'&&api.types[v.type].ww2Role==='dive'&&v.weapons.bomb>0).sort((a,b)=>(a.route[0]?distance(a,a.route[0]):999)-(b.route[0]?distance(b,b.route[0]):999))[0]:null;
+      const attack=level.coordination&&u.ai?.ww2Task==='escort'?s.units.filter(v=>v.side===u.side&&v.originDeck===u.originDeck&&live(v)&&api.airborne(v)&&v.flightState==='airborne'&&['dive','torpedo'].includes(api.types[v.type].ww2Role)&&(v.weapons.bomb>0||v.weapons.torpedo>0)).sort((a,b)=>(a.route[0]?distance(a,a.route[0]):999)-(b.route[0]?distance(b,b.route[0]):999))[0]:null;
       const anchor=attack||home;
       const c=api.visibleContacts(s,u.side).filter(c=>c.domain==='air'&&s.time-c.time<=30&&distance(anchor,c)<(attack?35:48)).sort((a,b)=>(attack?(a.classification==='fighter'?0:1)-(b.classification==='fighter'?0:1):0)||distance(u,a)-distance(u,b))[0];
       if(c){u.route=[{x:c.x,y:c.y}];u.altitude=c.altitude==='low'?'low':'medium';}
@@ -118,33 +125,42 @@ export function commandWW2(s,api){
       else if(!u.route.length)u.route=capRoute(home,Number(u.id.slice(1)));
       continue;
     }
-    const origin=api.unitById(s,u.originDeck),islandRaid=red&&role==='dive'&&u.sorties===0&&['ww2_akagi','ww2_kaga'].includes(origin?.type);
+    const origin=api.unitById(s,u.originDeck),islandRaid=s.scenario==='midway42'&&red&&role==='dive'&&u.sorties===0&&['ww2_akagi','ww2_kaga'].includes(origin?.type);
     const c=targetReport(s,u,api),goal=c||islandRaid&&ww2Zone(s);
     u.aiTarget=c?.id||null;
-    if(goal){u.route=[{x:goal.x,y:goal.y}];u.altitude=distance(u,goal)<12?'low':'medium';}
+    if(goal){const flank=level===AI_LEVELS.ace&&distance(u,goal)>15?(Number(u.id.slice(1))%2?4:-4):0;u.route=[{x:goal.x,y:goal.y+flank}];u.altitude=distance(u,goal)<12?'low':'medium';}
   }
-  const reports=strikeReports(s,'blue',api);
-  s.mission.stage=plan||orders.length?reports.length?'敌舰报告已建立 · 航空攻击波接敌':'搜索中 · 先侦察，再组织攻击':'等待指挥 · 侦察机正在搜索';
+  for(const u of s.units.filter(u=>live(u)&&['surface','sub'].includes(api.types[u.type].domain)&&api.types[u.type].weapons.gun>0&&(u.side!==playerSide(s)||plan)&&missionControlled(u))){
+    if(s.time<(u.nextDecision||0))continue;const level=aiLevel(s,u.side);u.nextDecision=s.time+level.reaction;
+    const c=api.visibleContacts(s,u.side).filter(c=>!c.stale&&c.quality==='track'&&['surface','sub'].includes(c.domain)&&api.usableContact(s,u,c)).sort((a,b)=>distance(u,a)-distance(u,b))[0];if(!c){if(s.scenario==='ww2sandbox'&&!u.route.length)u.route=api.route(s,u,{x:120,y:85})||[];continue;}
+    if(api.types[u.type].domain==='sub'&&u.depth==='deep'&&u.battery>120)u.depth='periscope';
+    const w=c.domain==='sub'?{range:.65}:api.types[u.type].domain==='sub'?api.types[u.type].profiles.torpedo:api.types[u.type].profiles.gun,d=distance(u,c)||1,retreat=u.hp/api.types[u.type].hp<level.retreat,desired=retreat?w.range*1.2:w.range*(level===AI_LEVELS.amateur?.85:.65);
+    const point={x:c.x+(u.x-c.x)/d*desired,y:c.y+(u.y-c.y)/d*desired},route=api.route(s,u,point);if(route)u.route=route;u.autoEngage=true;u.speed=Math.round((api.types[u.type].domain==='sub'?api.types[u.type].submergedSpeed:api.types[u.type].speed)*.7);
+  }
+  const reports=strikeReports(s,playerSide(s),api);
+  s.mission.stage=s.scenario==='ww2sandbox'?(plan||orders.length?reports.length?'敌舰报告已建立 · 编队接敌':'编队搜索中 · 声呐与目视搜索目标':'自由指挥 · 下达航线或执行作战计划'):plan||orders.length?reports.length?'敌舰报告已建立 · 航空攻击波接敌':'搜索中 · 先侦察，再组织攻击':'等待指挥 · 侦察机正在搜索';
 }
 
 export function ww2Objectives(s){
   if(isSurfaceWW2(s))return surfaceWW2Objectives(s);
-  const m=s.mission;
+  const m=s.mission;if(s.scenario==='ww2sandbox')return [];
+  if(playerSide(s)==='red')return [{text:`保持至少两艘可作战航母 ${4-m.disabledCarriers} / 2`,failed:m.disabledCarriers>=3},{text:'压制中途岛或使美军航母全部失能；亦可阻止对方达成任务至时限',done:s.phase==='ended'&&s.result==='victory'}];
   return [{text:`日军航母失去航空作战能力 ${m.disabledCarriers} / 3`,done:m.disabledCarriers>=3},
     {text:`美军可作战航母 ${m.operationalCarriers} / 至少 1`,failed:m.operationalCarriers<1,done:s.phase==='ended'&&s.result==='victory'},
     {text:`中途岛基地完整度 ${m.midwayHealth}%`,failed:m.midwayHealth<=0,done:s.phase==='ended'&&s.result==='victory'}];
 }
 export function updateWW2(s,dt,api){
-  if(s.phase!=='running')return;
+  if(s.phase!=='running'||s.scenario==='ww2sandbox')return;
   if(isSurfaceWW2(s))return updateSurfaceWW2(s,dt,api);
   const m=s.mission,carriers=s.units.filter(u=>carrier(u,api)),base=s.units.find(u=>u.type==='ww2_midway');
   m.disabledCarriers=carriers.filter(u=>u.side==='red'&&!operational(u,api)).length;
   m.operationalCarriers=carriers.filter(u=>u.side==='blue'&&operational(u,api)).length;
   m.midwayHealth=Math.ceil(base.hp/api.types[base.type].hp*100);
   const finish=(result,reason)=>{
-    s.phase='ended';s.paused=true;s.result=result;m.reason=reason;
+    s.phase='ended';s.paused=true;s.result=playerOutcome(s,result);m.reason=playerSide(s)==='red'?`美方任务：${reason}`:reason;
     m.score=Math.max(0,Math.min(100,Math.round(m.disabledCarriers*17+m.operationalCarriers*6+m.midwayHealth*.12+(result==='victory'?6:0))));
-    api.log(s,reason,result==='victory'?'combat':'warning');
+    if(playerSide(s)==='red')m.score=100-m.score;
+    api.log(s,reason,s.result==='victory'?'combat':'warning');
   };
   if(base.hp<=0)return finish('defeat','中途岛守军与航空设施损失，防御任务失败。');
   if(m.operationalCarriers===0)return finish('defeat','美军航母均失去航空作战能力。');
