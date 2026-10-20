@@ -1,9 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-import * as E from '../dist/engine.js?v=0.13.0';
-import {REAL_MAPS,geoToWorld,worldToGeo} from '../dist/geography.js?v=0.13.0';
-import {HISTORICAL_SCENARIOS,missionZone} from '../dist/historical-missions.js?v=0.13.0';
+import * as E from '../dist/engine.js?v=0.13.1';
+import {REAL_MAPS,geoToWorld,worldToGeo} from '../dist/geography.js?v=0.13.1';
+import {HISTORICAL_SCENARIOS,missionZone} from '../dist/historical-missions.js?v=0.13.1';
 const scenarios=Object.keys(HISTORICAL_SCENARIOS);
 function run(s,seconds){while(seconds>0&&s.phase==='running'){const n=Math.min(seconds,30);E.step(s,n);seconds-=n;}}
 test('三张地图均来自真实海岸线；经纬度投影保持海里比例并可逆',()=>{

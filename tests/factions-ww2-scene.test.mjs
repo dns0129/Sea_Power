@@ -1,12 +1,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import * as E from '../dist/engine.js?v=0.13.0';
-import {briefingIntel,briefingChart,missionGoals,scenarioBrief} from '../dist/scenario-flow.js?v=0.13.0';
-import {seaSnapshot,sceneUnit,MODEL_PROFILES} from '../dist/sea-scene-data.js?v=0.13.0';
-import {METRES_PER_NM,modelTransform,modelLength,sceneHeading} from '../dist/scene-coordinates.js?v=0.13.0';
-import {prepareModel} from '../dist/sea-view.js?v=0.13.0';
-import {missionZone} from '../dist/historical-missions.js?v=0.13.0';
+import * as E from '../dist/engine.js?v=0.13.1';
+import {briefingIntel,briefingChart,missionGoals,scenarioBrief} from '../dist/scenario-flow.js?v=0.13.1';
+import {seaSnapshot,sceneUnit,MODEL_PROFILES} from '../dist/sea-scene-data.js?v=0.13.1';
+import {METRES_PER_NM,modelTransform,modelLength,sceneHeading} from '../dist/scene-coordinates.js?v=0.13.1';
+import {prepareModel} from '../dist/sea-view.js?v=0.13.1';
+import {missionZone} from '../dist/historical-missions.js?v=0.13.1';
 import {GLTFLoader} from '../dist/vendor/three/addons/loaders/GLTFLoader.js';
 import {Box3,Vector3} from '../dist/vendor/three/three.module.js';
 

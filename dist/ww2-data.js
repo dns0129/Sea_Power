@@ -1,6 +1,6 @@
 // Original first-edition WWII rules. Aircraft units represent small flight
 // groups; ammunition, times and starting stations are gameplay abstractions.
-import {SURFACE_MAPS,SURFACE_SCENARIOS} from './ww2-scenarios.js?v=0.13.0';
+import {SURFACE_MAPS,SURFACE_SCENARIOS} from './ww2-scenarios.js?v=0.13.1';
 export const isWW2Scenario=s=>Object.hasOwn(WW2_SCENARIOS,s?.scenario);
 const latitude=29.5,west=-181,east=-174,north=32,south=27;
 const project=([lon,lat])=>[(lon-west)*60*Math.cos(latitude*Math.PI/180),(north-lat)*60];

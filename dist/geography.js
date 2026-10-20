@@ -1,5 +1,5 @@
-import {REAL_MAPS} from './real-coastlines.js?v=0.13.0';
-import {WW2_MAPS} from './ww2-data.js?v=0.13.0';
+import {REAL_MAPS} from './real-coastlines.js?v=0.13.1';
+import {WW2_MAPS} from './ww2-data.js?v=0.13.1';
 export {REAL_MAPS};
 export const geographicMap=s=>REAL_MAPS[s?.mapId]||WW2_MAPS[s?.mapId]||null;
 export function geoToWorld(map,lon,lat){return {x:(lon-map.west)*60*Math.cos(map.referenceLatitude*Math.PI/180),y:(map.north-lat)*60};}

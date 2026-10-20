@@ -1,25 +1,26 @@
-import {AUTO_PRESETS,AI_DOCTRINES,populateAutoPreset,configureAutomation,beginAutomation,commandAutomation,hasCombatPlatform,updateAutoOutcome,finishAutomation,automationReport,restoreAutomation,recordAutoShot,recordAutoDamage,recordAutoIntercept,recordAutoSortie} from './auto-commander.js?v=0.13.0';
+import {freeFireEnabled} from './fire-control.js?v=0.13.1';
+import {AUTO_PRESETS,AI_DOCTRINES,populateAutoPreset,configureAutomation,beginAutomation,commandAutomation,hasCombatPlatform,updateAutoOutcome,finishAutomation,automationReport,restoreAutomation,recordAutoShot,recordAutoDamage,recordAutoIntercept,recordAutoSortie} from './auto-commander.js?v=0.13.1';
 export {AUTO_PRESETS,AI_DOCTRINES};
-import {buildModernCatalog} from './modern-catalog.js?v=0.13.0';
-import {buildWW2Catalog,WW2_SCENARIOS,WW2_PRESETS,populateWW2Sandbox} from './ww2-data.js?v=0.13.0';
-import {commandWW2,restoreWW2Mission} from './ww2-missions.js?v=0.13.0';
-import {smokeBlocks,updateSmoke} from './ww2-visibility.js?v=0.13.0';
-import {missionControlled,commandUnits as runUnitOrders,updateDogfights,fighterType} from './unit-orders.js?v=0.13.0';
-import {criticalImpact,CRITICAL_PARTS} from './ww2-damage.js?v=0.13.0';
-import {CUSTOM_MISSIONS,supportsCustom,validateCustom,loadoutUsage as capacityUsage,missionWeaponKeys} from './loadout-rules.js?v=0.13.0';
+import {buildModernCatalog} from './modern-catalog.js?v=0.13.1';
+import {buildWW2Catalog,WW2_SCENARIOS,WW2_PRESETS,populateWW2Sandbox} from './ww2-data.js?v=0.13.1';
+import {commandWW2,restoreWW2Mission} from './ww2-missions.js?v=0.13.1';
+import {smokeBlocks,updateSmoke} from './ww2-visibility.js?v=0.13.1';
+import {missionControlled,commandUnits as runUnitOrders,updateDogfights,fighterType} from './unit-orders.js?v=0.13.1';
+import {criticalImpact,CRITICAL_PARTS} from './ww2-damage.js?v=0.13.1';
+import {CUSTOM_MISSIONS,supportsCustom,validateCustom,loadoutUsage as capacityUsage,missionWeaponKeys} from './loadout-rules.js?v=0.13.1';
 export {CUSTOM_MISSIONS};
-import {geographicMap,geoToWorld,REAL_MAPS} from './geography.js?v=0.13.0';
-import {seaRoute} from './navigation.js?v=0.13.0';
-import {WEATHER,AI_LEVELS,weatherFor,visualRange,aiLevel,gunnerySolution,airCombatProfile,dogfightSolution} from './tactical-rules.js?v=0.13.0';
-import {commandUnits as applyUnitCommands} from './unit-commands.js?v=0.13.0';
-export {WEATHER,AI_LEVELS,aiLevel,airCombatProfile};
-import {getBattleTheatre,factionName,inDeploymentZone,nearestSeparationKm} from './battle-theatres.js?v=0.13.0';
+import {geographicMap,geoToWorld,REAL_MAPS} from './geography.js?v=0.13.1';
+import {seaRoute} from './navigation.js?v=0.13.1';
+import {WEATHER,AI_LEVELS,weatherFor,visualRange,aiLevel,gunnerySolution,airCombatProfile,dogfightSolution} from './tactical-rules.js?v=0.13.1';
+import {commandUnits as applyUnitCommands} from './unit-commands.js?v=0.13.1';
+export {WEATHER,AI_LEVELS,aiLevel,airCombatProfile,freeFireEnabled};
+import {getBattleTheatre,factionName,inDeploymentZone,nearestSeparationKm} from './battle-theatres.js?v=0.13.1';
 export {getBattleTheatre,factionName};
-import {playerSide,opposingSide,aiControlLocked,playerOutcome} from './factions.js?v=0.13.0';
-import {CHART_THEMES} from './chart-themes.js?v=0.13.0';
-import {DISPLAY_SCALES} from './scene-coordinates.js?v=0.13.0';
+import {playerSide,opposingSide,aiControlLocked,playerOutcome} from './factions.js?v=0.13.1';
+import {CHART_THEMES} from './chart-themes.js?v=0.13.1';
+import {DISPLAY_SCALES} from './scene-coordinates.js?v=0.13.1';
 export {playerSide,opposingSide,aiControlLocked,CHART_THEMES,DISPLAY_SCALES,WW2_PRESETS};
-import {HISTORICAL_SCENARIOS,initializeHistorical,historicalOrder,historicalObjectives,updateHistorical,commandHistorical,missionSearch,missionZone} from './historical-missions.js?v=0.13.0';
+import {HISTORICAL_SCENARIOS,initializeHistorical,historicalOrder,historicalObjectives,updateHistorical,commandHistorical,missionSearch,missionZone} from './historical-missions.js?v=0.13.1';
 export {historicalObjectives};
 // 原创确定性游戏模型。距离：海里；速度：节；推演时间：秒。
 export const WORLD={width:240,height:170};
@@ -222,6 +223,13 @@ export function start(s){
   s.phase='running';s.paused=false;if(isAutoBattle(s))beginAutomation(s,autoDeployment,autoAPI());scan(s);if(isHistorical(s)&&!isWW2(s))commandHistorical(s,missionAPI());log(s,'推演开始。双方遵循相同探测与交战规则。');return {ok:true};
 }
 const controllable=(s,u)=>u&&u.hp>0&&!u.exited&&s.phase!=='ended'&&!aiControlLocked(s)&&(u.side===playerSide(s)||s.phase==='setup'&&freeDeploy(s));
+export function setFreeFire(s,id,enabled){
+  const u=unitById(s,id);
+  if(!controllable(s,u)||typeof enabled!=='boolean')return {ok:false,error:'请选择可指挥的本方单位'};
+  u.fireAtWill=enabled;u.nextCombat=0;
+  log(s,`${u.name}：自由开火${enabled?'开启 · 自动选择有效目标':'关闭 · 保留自卫'}`);
+  return {ok:true};
+}
 export function setUnitControl(s,id,mode){
   const u=unitById(s,id);
   if(!controllable(s,u)||!['mission','manual','ai'].includes(mode))return {ok:false,error:'请选择可指挥的本方单位'};
@@ -269,7 +277,7 @@ export function setSpeed(s,id,value){
 }
 export function setAltitude(s,id,value){const u=unitById(s,id);if(!controllable(s,u)||!airborne(u)||!Object.hasOwn(ALTITUDES,value)||!(TYPES[u.type].altitudes|| (TYPES[u.type].rotary?['low']:Object.keys(ALTITUDES))).includes(value))return {ok:false,error:'当前平台无法使用该高度'};u.altitude=value;log(s,`${u.name} 改为${ALTITUDES[value].name}`);return {ok:true};}
 export function returnToBase(s,id){const u=unitById(s,id);if(!u||u.hp<=0||!airborne(u)||s.phase!=='running')return {ok:false,error:'只有推演中的在空飞机可以返航'};if(!u.home)assignHome(s,u);u.leader=null;u.offset=null;u.manualTarget=null;u.refuelTarget=null;u.flightState='returning';u.route=[{x:u.home.x,y:u.home.y}];u.speed=Math.round(TYPES[u.type].speed*.7);log(s,`${u.side===playerSide(s)?u.name:'敌方飞机'} 返航补给`);return {ok:true};}
-export const commandUnits=(s,ids,order)=>applyUnitCommands(s,ids,order,{unitById,types:TYPES,controllable,setRoute,setSpeed,setAltitude,returnToBase,weaponStats,log});
+export const commandUnits=(s,ids,order)=>applyUnitCommands(s,ids,order,{unitById,types:TYPES,controllable,setRoute,setSpeed,setAltitude,returnToBase,weaponStats,setFreeFire,log});
 export const AA_PRIORITIES={all:'全部飞机',fighters:'仅战斗机',torpedo:'仅鱼雷机',attack:'轰炸机与鱼雷机'};
 function aaAccepts(u,c){return u.aaPriority==='fighters'?c.classification==='fighter':u.aaPriority==='torpedo'?c.classification==='torpedo':u.aaPriority==='attack'?['dive','torpedo'].includes(c.classification):true;}
 export function setAAPriority(s,id,priority){const u=unitById(s,id);if(!controllable(s,u)||TYPES[u.type].era!=='ww2'||!TYPES[u.type].weapons.point||!Object.hasOwn(AA_PRIORITIES,priority))return {ok:false,error:'请选择己方高射炮平台和有效目标策略'};u.aaPriority=priority;return {ok:true};}
@@ -539,13 +547,13 @@ function aviation(s,u,dt){
   }
 }
 function combatAI(s){
-  for(const u of s.units.filter(u=>(u.autoEngage||u.autoDefense&&u.dogfightWith?.length&&fighterType(TYPES[u.type]))&&u.hp>0&&!u.exited&&(TYPES[u.type].domain!=='air'||airborne(u)&&u.flightState!=='returning'))){
+  for(const u of s.units.filter(u=>(freeFireEnabled(u)||u.autoDefense&&u.dogfightWith?.length&&fighterType(TYPES[u.type]))&&u.hp>0&&!u.exited&&(TYPES[u.type].domain!=='air'||airborne(u)&&u.flightState!=='returning'))){
     if(TYPES[u.type].support)continue;
     if(s.time<(u.nextCombat||0))continue;u.nextCombat=s.time+(u.side===playerSide(s)&&!isAutoBattle(s)?8:aiLevel(s,u.side).reaction);
     if(!isAutoBattle(s)&&u.missionRole==='raider'&&!u.weapons.bomb){if(u.flightState==='airborne')returnToBase(s,u.id);continue;}
     const strikeTarget=isWW2(s)&&['dive','torpedo'].includes(TYPES[u.type].ww2Role)&&s.contacts[u.side][u.aiTarget]?.classification==='carrier'?u.aiTarget:null;
-    const contacts=visibleContacts(s,u.side).filter(c=>!c.stale&&(!u.lockedTarget||c.id===u.lockedTarget)&&(!strikeTarget||c.id===strikeTarget)&&Object.keys(WEAPONS).some(key=>u.weapons[key]>0&&weaponStats(u,key).targets.includes(c.domain))).sort((a,b)=>(a.id===(u.lockedTarget||u.aiTarget)?0:1)-(b.id===(u.lockedTarget||u.aiTarget)?0:1)||(!isAutoBattle(s)&&u.missionRole==='raider'?(unitById(s,a.id)?.missionRole==='transport'?0:1)-(unitById(s,b.id)?.missionRole==='transport'?0:1):0)||(a.domain==='air'?0:1)-(b.domain==='air'?0:1)||distance(u,a)-distance(u,b));
-    if(u.manualTarget){contacts.sort((a,b)=>(b.id===u.manualTarget)-(a.id===u.manualTarget));const c=contacts.find(c=>c.id===u.manualTarget);if(c&&!u.leader&&TYPES[u.type].domain!=='land'&&(TYPES[u.type].domain==='air'||clearPath(u,c,s)))u.route=[{x:c.x,y:c.y}];}
+    const contacts=visibleContacts(s,u.side).filter(c=>!c.stale&&(!u.lockedTarget||u.fireAtWill===true||c.id===u.lockedTarget)&&(!strikeTarget||c.id===strikeTarget)&&Object.keys(WEAPONS).some(key=>u.weapons[key]>0&&weaponStats(u,key).targets.includes(c.domain))).sort((a,b)=>(a.id===(u.lockedTarget||u.aiTarget)?0:1)-(b.id===(u.lockedTarget||u.aiTarget)?0:1)||(!isAutoBattle(s)&&u.missionRole==='raider'?(unitById(s,a.id)?.missionRole==='transport'?0:1)-(unitById(s,b.id)?.missionRole==='transport'?0:1):0)||(a.domain==='air'?0:1)-(b.domain==='air'?0:1)||distance(u,a)-distance(u,b));
+    if(u.manualTarget&&u.fireAtWill!==true){contacts.sort((a,b)=>(b.id===u.manualTarget)-(a.id===u.manualTarget));const c=contacts.find(c=>c.id===u.manualTarget);if(c&&!u.leader&&TYPES[u.type].domain!=='land'&&(TYPES[u.type].domain==='air'||clearPath(u,c,s)))u.route=[{x:c.x,y:c.y}];}
     if((aiControlLocked(s)||u.side!==playerSide(s))&&aiLevel(s,u.side)===AI_LEVELS.ace)contacts.sort((a,b)=>s.missiles.filter(m=>m.side===u.side&&m.target===a.id).length-s.missiles.filter(m=>m.side===u.side&&m.target===b.id).length||distance(u,a)-distance(u,b));
     for(const c of contacts){
       if(c.domain==='air'&&s.missiles.filter(m=>m.side===u.side&&m.targetKind==='unit'&&m.target===c.id).length>=2)continue;
@@ -710,6 +718,8 @@ export function deserialize(text){
     u.rangefinder=number(r.rangefinder,0,1,1);u.aircraft=number(r.aircraft,0,t.squadronSize||0,t.squadronSize?Math.ceil(u.hp/t.hp*t.squadronSize):0);if(!Number.isInteger(u.aircraft)||t.squadronSize&&u.hp>0&&!u.aircraft)throw Error('机群数量无效');if(u.hp<=0)u.aircraft=0;
     if(r.commandMode!==undefined&&!['auto','manual','escort','group','independent','mission','ai','follow'].includes(r.commandMode))throw Error('群体指令无效');u.commandMode=r.commandMode||'mission';u.manualTarget=typeof r.manualTarget==='string'?r.manualTarget:null;u.nextDecision=number(r.nextDecision,0,1e8,0);u.nextDeckDecision=number(r.nextDeckDecision,0,1e8,0);u.nextCombat=number(r.nextCombat,0,1e8,0);
     for(const key of ['radar','sonar','esm','autoDefense','datalink','autoEngage','jamming'])u[key]=legacy&&['datalink','autoEngage'].includes(key)?key==='datalink'||r.side==='red':r[key]===true;
+    if(r.fireAtWill!==undefined&&typeof r.fireAtWill!=='boolean')throw Error('自由开火设置无效');
+    if(typeof r.fireAtWill==='boolean')u.fireAtWill=r.fireAtWill;
     u.name=typeof r.name==='string'?r.name.slice(0,36):u.name;u.route=r.route.map(p=>point(p,s));if(t.domain==='land'&&u.route.length)throw Error('岸基单位不能拥有航线');
     for(const key of Object.keys(WEAPONS)){
       const oldAir=legacy&&t.domain==='air'&&key==='aam',value=oldAir?r.weapons?.sam:legacy&&t.domain==='air'&&key==='sam'?0:r.weapons?.[key];

@@ -1,9 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import * as E from '../dist/engine.js?v=0.13.0';
-import {scenarioChoices,missionGoals,briefingChart} from '../dist/scenario-flow.js?v=0.13.0';
-import {seaSnapshot,modelFor} from '../dist/sea-scene-data.js?v=0.13.0';
-import {missionZone} from '../dist/historical-missions.js?v=0.13.0';
+import * as E from '../dist/engine.js?v=0.13.1';
+import {scenarioChoices,missionGoals,briefingChart} from '../dist/scenario-flow.js?v=0.13.1';
+import {seaSnapshot,modelFor} from '../dist/sea-scene-data.js?v=0.13.1';
+import {missionZone} from '../dist/historical-missions.js?v=0.13.1';
 
 const ids=['denmark41','guadalcanal42','samar44'];
 function run(s,seconds){while(seconds>0&&s.phase==='running'){const dt=Math.min(seconds,300);E.step(s,dt);seconds-=dt;}}

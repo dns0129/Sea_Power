@@ -1,8 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import * as E from '../dist/engine.js?v=0.13.0';
-import {scenarioChoices,missionGoals,briefingChart} from '../dist/scenario-flow.js?v=0.13.0';
-import {seaSnapshot,modelFor} from '../dist/sea-scene-data.js?v=0.13.0';
+import * as E from '../dist/engine.js?v=0.13.1';
+import {scenarioChoices,missionGoals,briefingChart} from '../dist/scenario-flow.js?v=0.13.1';
+import {seaSnapshot,modelFor} from '../dist/sea-scene-data.js?v=0.13.1';
 
 function quiet(){const s=E.createState('midway42');E.start(s);for(const u of s.units){u.autoEngage=false;u.autoDefense=false;u.radar=false;}return s;}
 function run(s,seconds){while(seconds>0&&s.phase==='running'){const n=Math.min(300,seconds);E.step(s,n);seconds-=n;}}

@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import * as E from '../dist/engine.js?v=0.13.0';
-import {dogfightSolution,airCombatProfile} from '../dist/tactical-rules.js?v=0.13.0';
+import * as E from '../dist/engine.js?v=0.13.1';
+import {dogfightSolution,airCombatProfile} from '../dist/tactical-rules.js?v=0.13.1';
 
 function quiet(){
   const s=E.createState('midway42');E.start(s);

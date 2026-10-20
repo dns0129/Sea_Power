@@ -1,7 +1,7 @@
-import {playerSide,playerOutcome} from './factions.js?v=0.13.0';
-import {missionControlled} from './unit-orders.js?v=0.13.0';
-import {SURFACE_SCENARIOS} from './ww2-scenarios.js?v=0.13.0';
-import {geographicMap,geoToWorld} from './geography.js?v=0.13.0';
+import {playerSide,playerOutcome} from './factions.js?v=0.13.1';
+import {missionControlled} from './unit-orders.js?v=0.13.1';
+import {SURFACE_SCENARIOS} from './ww2-scenarios.js?v=0.13.1';
+import {geographicMap,geoToWorld} from './geography.js?v=0.13.1';
 
 export const isSurfaceWW2=s=>Object.hasOwn(SURFACE_SCENARIOS,s.scenario);
 const live=u=>u.hp>0&&!u.exited;

@@ -1,4 +1,4 @@
-import {factionInfo} from './factions.js?v=0.13.0';
+import {factionInfo} from './factions.js?v=0.13.1';
 // Fictional exercise geometry. Coordinates remain nautical miles throughout the engine.
 export const KM_PER_NM=1.852;
 function theatre(initialSeparationKm){const separation=initialSeparationKm/KM_PER_NM;return {

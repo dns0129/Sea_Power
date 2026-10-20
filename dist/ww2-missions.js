@@ -1,10 +1,10 @@
-import {missionControlled} from './unit-orders.js?v=0.13.0';
-import {playerSide,playerOutcome} from './factions.js?v=0.13.0';
-import {WW2_SCENARIOS,isWW2Scenario} from './ww2-data.js?v=0.13.0';
-import {geographicMap,geoToWorld} from './geography.js?v=0.13.0';
-import {AI_LEVELS,aiLevel} from './tactical-rules.js?v=0.13.0';
+import {missionControlled} from './unit-orders.js?v=0.13.1';
+import {playerSide,playerOutcome} from './factions.js?v=0.13.1';
+import {WW2_SCENARIOS,isWW2Scenario} from './ww2-data.js?v=0.13.1';
+import {geographicMap,geoToWorld} from './geography.js?v=0.13.1';
+import {AI_LEVELS,aiLevel} from './tactical-rules.js?v=0.13.1';
 
-import {isSurfaceWW2,initializeSurfaceWW2,surfaceWW2Order,commandSurfaceWW2,updateSurfaceWW2,surfaceWW2Objectives,restoreSurfaceWW2} from './ww2-surface.js?v=0.13.0';
+import {isSurfaceWW2,initializeSurfaceWW2,surfaceWW2Order,commandSurfaceWW2,updateSurfaceWW2,surfaceWW2Objectives,restoreSurfaceWW2} from './ww2-surface.js?v=0.13.1';
 
 export const ww2Zone=s=>{if(s.scenario==='ww2sandbox')return {x:120,y:85,radius:12,name:'公共演练海域'};const z=WW2_SCENARIOS[s.scenario].zone;return {...geoToWorld(geographicMap(s),z.lon,z.lat),radius:z.radius,name:z.name};};
 export const ww2Search=s=>s.scenario==='ww2sandbox'?{x:120,y:85}:geoToWorld(geographicMap(s),...WW2_SCENARIOS[s.scenario].search);

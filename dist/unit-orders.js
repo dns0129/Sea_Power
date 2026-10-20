@@ -1,3 +1,4 @@
+import {freeFireEnabled} from './fire-control.js?v=0.13.1';
 // Unit commands use received observations and public geography. Enemy unit
 // coordinates are never used to choose a course or an interception point.
 export const missionControlled=u=>!u.commandMode||['mission','auto'].includes(u.commandMode);
@@ -83,7 +84,7 @@ export function commandUnits(s,api){
 // requested cruise speed, and disappear as soon as close combat breaks off.
 export function updateDogfights(s,api){
   for(const u of s.units){u.combatSlow=1;u.dogfightWith=[];u.combatGoal=null;}
-  for(const u of s.units.filter(u=>live(u)&&api.airborne(u)&&u.flightState!=='returning'&&fighterType(api.types[u.type])&&(u.autoEngage||u.lockedTarget))){
+  for(const u of s.units.filter(u=>live(u)&&api.airborne(u)&&u.flightState!=='returning'&&fighterType(api.types[u.type])&&(freeFireEnabled(u)||u.fireAtWill!==false&&u.lockedTarget))){
     const t=api.types[u.type],radius=t.era==='ww2'?1.8:2.5;
     const local=reports(s,u,api).filter(c=>c.domain==='air'&&s.time-c.time<=6&&c.observations?.[u.id]&&s.time-c.observations[u.id].time<=6&&(t.era!=='ww2'||c.observations[u.id].source==='目视'));
     const c=u.lockedTarget?local.find(c=>c.id===u.lockedTarget):local.find(c=>c.id===u.aiTarget)||local.sort((a,b)=>dist(u,a)-dist(u,b))[0];

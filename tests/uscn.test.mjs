@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import * as E from '../dist/engine.js?v=0.13.0';
+import * as E from '../dist/engine.js?v=0.13.1';
 
 const KM_PER_NM=1.852;
 const presets=['surface','carrier','asw'];

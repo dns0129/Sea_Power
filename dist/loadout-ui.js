@@ -1,4 +1,4 @@
-import {TYPES,WEAPONS,CUSTOM_MISSIONS,validateCustomLoadout,loadoutUsage} from './engine.js?v=0.13.0';
+import {TYPES,WEAPONS,CUSTOM_MISSIONS,validateCustomLoadout,loadoutUsage} from './engine.js?v=0.13.1';
 
 const targetNames={air:'航空目标',surface:'水面舰艇',sub:'潜艇',land:'陆地目标',missile:'来袭导弹'};
 const missionFor=row=>row?.mission||({naval:'naval',navalEscort:'naval',navalHeavy:'naval',asw:'asw',cap:'air',air:'air',strike:'strike',sead:'sead',close:'close'}[row?.id]||'general');

@@ -1,6 +1,7 @@
-import {playerSide,aiControlLocked} from './factions.js?v=0.13.0';
-import {metresToScene} from './scene-coordinates.js?v=0.13.0';
-import {TYPES,ALTITUDES,SCENARIOS,airborne,visibleContacts,freeDeploy,isAutoBattle,isWW2,landFor,worldFor,factionName,weaponStats,historicalObjectives,effectiveSpeed,airCombatProfile,WEATHER,aiLevel} from './engine.js?v=0.13.0';
+import {freeFireEnabled} from './fire-control.js?v=0.13.1';
+import {playerSide,aiControlLocked} from './factions.js?v=0.13.1';
+import {metresToScene} from './scene-coordinates.js?v=0.13.1';
+import {TYPES,ALTITUDES,SCENARIOS,airborne,visibleContacts,freeDeploy,isAutoBattle,isWW2,landFor,worldFor,factionName,weaponStats,historicalObjectives,effectiveSpeed,airCombatProfile,WEATHER,aiLevel} from './engine.js?v=0.13.1';
 
 // A visual library, independent of simulation types. Replace these GLBs to
 // change the art without changing platform statistics or saved games.
@@ -60,7 +61,7 @@ export function sceneUnit(u){
     modelCode:t.category==='battleship'?'BB':t.era==='ww2'&&t.domain==='sub'?'SS':null,
     lengthMetres:t.lengthMetres||MODEL_PROFILES[model].length,beamMetres:t.beamMetres,
     x:u.x,y:u.y,heading:u.heading,speed:effectiveSpeed(u),requestedSpeed:u.speed,hp:u.hp,maxHp:t.hp,
-    commandMode:u.commandMode,commandStatus:u.commandStatus,lockedTarget:u.lockedTarget,dogfightWith:u.dogfightWith,criticalHits:u.criticalHits,
+    autoEngage:freeFireEnabled(u),fireAtWill:u.fireAtWill,commandMode:u.commandMode,commandStatus:u.commandStatus,lockedTarget:u.lockedTarget,dogfightWith:u.dogfightWith,criticalHits:u.criticalHits,
     altitude:inAir?ALTITUDES[u.altitude]?.height||3500:0,
     altitudeName:inAir?ALTITUDES[u.altitude]?.name:'停场',
     height:inAir?metresToScene(ALTITUDES[u.altitude]?.height||3500):t.domain==='sub'&&u.depth!=='surfaced'?metresToScene(u.depth==='deep'?-35:-4):0,

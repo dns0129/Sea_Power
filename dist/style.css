@@ -158,3 +158,8 @@ html[data-chart-theme="light"] :is(.flow-subtitle,.flow-goals p,.flow-entry-desc
 html[data-chart-theme="light"] :is(.unit-command-card,.unit-command-actions button,.unit-lock-button){background:#f3f8fa;color:var(--text);border-color:var(--line)}
 html[data-chart-theme="light"] .unit-command-actions button.active{background:#166e61;color:#fff}
 html[data-chart-theme="light"] :is(.unit-command-card p,.unit-command-card small,.unit-lock-label){color:var(--muted)}
+
+.unit-free-fire{display:block;width:100%;min-height:40px;padding:8px;border:1px solid #638991;border-radius:5px;background:#142e37;color:#e0eef0;font:inherit;cursor:pointer}
+.unit-free-fire.active{background:#166e61;border-color:#80cbb8;color:#fff}
+.unit-free-fire:disabled{opacity:.5;cursor:default}
+html[data-chart-theme="light"] .unit-free-fire:not(.active){background:#f3f8fa;color:var(--text);border-color:var(--line)}

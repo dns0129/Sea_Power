@@ -1,16 +1,16 @@
-import {WORLD,LAND,TYPES,WEAPONS,SCENARIOS,createState,unitById,addUnit,removeUnit,start,setRoute,formFleet,scan,visibleContacts,distance,bearing,fireCheck,fire,step,serialize,deserialize,log,ALTITUDES,airborne,domainOf,weaponStats,maxSpeed,cruiseMaxSpeed,effectiveSpeed,setUnitControl,lockUnitTarget,sensorRange,missileVisible,setSpeed,setAltitude,returnToBase,worldFor,landFor,isHistorical,isWW2,deploySmoke,issueMissionOrder,historicalObjectives,freeDeploy,setLoadout,setDepth,launchDeck,requestRefuel,requestSupply,isAutoBattle,getBattleTheatre,factionName,supportsCustomLoadout,validateCustomLoadout,getLoadout,setCustomLoadout,setDeckLoadout} from './engine.js?v=0.13.0';
-import {createEquipmentUI} from './equipment-ui.js?v=0.13.0';
-import {createAutoBattleUI} from './auto-battle-ui.js?v=0.13.0';
-import {createLoadoutEditor,loadoutUsageText} from './loadout-ui.js?v=0.13.0';
-import {geographicMap,geoToWorld,formatGeo} from './geography.js?v=0.13.0';
-import {missionZone,missionSearch} from './historical-missions.js?v=0.13.0';
-import {createScenarioFlow,scenarioBrief} from './scenario-flow.js?v=0.13.0';
-import {seaSnapshot} from './sea-scene-data.js?v=0.13.0';
-import {commandUnits,setBattleConditions,gunAccuracy,airCombatProfile,AI_LEVELS,WEATHER,playerSide,aiControlLocked,setPlayerSide,setPresentation,CHART_THEMES,DISPLAY_SCALES,configureWW2Sandbox,WW2_PRESETS,setAAPriority,AA_PRIORITIES} from './engine.js?v=0.13.0';
+import {WORLD,LAND,TYPES,WEAPONS,SCENARIOS,createState,unitById,addUnit,removeUnit,start,setRoute,formFleet,scan,visibleContacts,distance,bearing,fireCheck,fire,step,serialize,deserialize,log,ALTITUDES,airborne,domainOf,weaponStats,maxSpeed,cruiseMaxSpeed,effectiveSpeed,setUnitControl,lockUnitTarget,sensorRange,missileVisible,setSpeed,setAltitude,returnToBase,worldFor,landFor,isHistorical,isWW2,deploySmoke,issueMissionOrder,historicalObjectives,freeDeploy,setLoadout,setDepth,launchDeck,requestRefuel,requestSupply,isAutoBattle,getBattleTheatre,factionName,supportsCustomLoadout,validateCustomLoadout,getLoadout,setCustomLoadout,setDeckLoadout} from './engine.js?v=0.13.1';
+import {createEquipmentUI} from './equipment-ui.js?v=0.13.1';
+import {createAutoBattleUI} from './auto-battle-ui.js?v=0.13.1';
+import {createLoadoutEditor,loadoutUsageText} from './loadout-ui.js?v=0.13.1';
+import {geographicMap,geoToWorld,formatGeo} from './geography.js?v=0.13.1';
+import {missionZone,missionSearch} from './historical-missions.js?v=0.13.1';
+import {createScenarioFlow,scenarioBrief} from './scenario-flow.js?v=0.13.1';
+import {seaSnapshot} from './sea-scene-data.js?v=0.13.1';
+import {setFreeFire,freeFireEnabled,commandUnits,setBattleConditions,gunAccuracy,airCombatProfile,AI_LEVELS,WEATHER,playerSide,aiControlLocked,setPlayerSide,setPresentation,CHART_THEMES,DISPLAY_SCALES,configureWW2Sandbox,WW2_PRESETS,setAAPriority,AA_PRIORITIES} from './engine.js?v=0.13.1';
 
-import {chartTheme} from './chart-themes.js?v=0.13.0';
-import {factionInfo} from './factions.js?v=0.13.0';
-import {unitCommandCard,unitCombatStatus} from './unit-command-ui.js?v=0.13.0';
+import {chartTheme} from './chart-themes.js?v=0.13.1';
+import {factionInfo} from './factions.js?v=0.13.1';
+import {unitCommandCard,unitCombatStatus} from './unit-command-ui.js?v=0.13.1';
 
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
 const escape=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -27,6 +27,12 @@ function selectUnit(id,add=false){
 }
 function selectionIds(){return [...selection].filter(id=>{const u=unitById(state,id);return u&&u.hp>0&&!u.exited;});}
 function groupOrder(order){const r=commandUnits(state,selectionIds(),order);result(r,r.ok?`已下令 ${r.applied.length} 个单位${r.skipped.length?`；${r.skipped.length} 个未执行：${r.skipped[0].error}`:''}`:undefined);return r.ok;}
+function toggleFreeFire(id){
+  const u=unitById(state,id);if(!u)return false;
+  const enabled=!freeFireEnabled(u),ids=selection.has(id)&&selectionIds().length>1?selectionIds():[id];
+  const r=ids.length>1?commandUnits(state,ids,{kind:'autoEngage',value:enabled}):setFreeFire(state,id,enabled);
+  result(r,r.ok?`${ids.length>1?ids.length+' 个单位：':''}自由开火已${enabled?'开启':'关闭'}`:undefined);lastInspector='';renderUI();return r.ok;
+}
 const lockChoices=new Map();
 function unitCommand(id,mode,targetId){
   const r=mode==='follow'?lockUnitTarget(state,id,targetId):setUnitControl(state,id,mode);
@@ -70,7 +76,7 @@ async function setBattleView(next){
   }
   try{
     if(!seaView){
-      if(!seaPromise)seaPromise=import('./sea-view.js?v=0.13.0').then(({createSeaView})=>createSeaView({
+      if(!seaPromise)seaPromise=import('./sea-view.js?v=0.13.1').then(({createSeaView})=>createSeaView({
         root:$('#sea-view'),
         onSelect:item=>{if(item.contact)target=item.id;else selectUnit(item.id);lastInspector=lastList='';renderUI();},
         onMap:()=>{setBattleView('map');setWidgetOpen('inspector',true);},
@@ -79,7 +85,7 @@ async function setBattleView(next){
         onHome:()=>flow.home(),onBrief:()=>flow.currentBrief(),onSave:()=>$('#save').click(),
         onMissionOrder:key=>result(issueMissionOrder(state,key),'二战作战指令已下达'),
         onDeploySmoke:id=>result(deploySmoke(state,id),'烟幕已施放'),
-        onUnitCommand:unitCommand,
+        onUnitCommand:unitCommand,onFreeFire:toggleFreeFire,
         onLaunchAircraft:(id,type)=>{const base=unitById(state,id);if(!base||base.side!==playerSide(state)||aiControlsLocked())return;const r=launchDeck(state,id,type);if(r.ok)r.unit.autoEngage=!TYPES[type].support;result(r,'航空小队已放飞');},
         onAA:(id,value)=>result(setAAPriority(state,id,value)),
         onDepth:(id,value)=>result(setDepth(state,id,value)),
@@ -156,7 +162,7 @@ function renderUI(){
   $('#brief-text').textContent=theatre?`美方（蓝）与中方（红）的前沿阵位从 ${theatre.initialSeparationKm} 公里（约 ${Math.round(theatre.initialSeparationNm)} 海里）开始。可在各自部署线后增删本国装备，再交由 AI 侦察、机动与交战。虚构海域，数值用于游戏推演。`:auto?'部署蓝红双方并选择任务挂载，完成后由两方 AI 接管。可在 AI 对战组件调整战术、时限与随机种子。':scenarioBrief(state);$('#briefing').classList.toggle('hidden',state.phase!=='setup'||!!mode);$('#begin').textContent=auto?'开始 AI 对战 ↗':'开始推演 ↗';
   $('.legend').innerHTML=`<span><i class="blue-symbol"></i> ${sideLabel}</span><span><i class="red-symbol"></i> ${otherLabel}${globalObserver()?'':'接触'}</span>`;
   $('#selection-summary').textContent=selection.size>1?`已选 ${selection.size} 个单位`:unitById(state,selected)?.name||'未选择';
-  chartColors=chartTheme(state);document.documentElement.dataset.chartTheme=state.chartTheme;$('#chart-theme').value=state.chartTheme;$('#model-scale').value=state.modelScale;$('#player-side').innerHTML=['blue','red'].map(side=>`<option value="${side}">${factionInfo(state,side).flag} ${factionName(state,side)}</option>`).join('');$('#player-side').value=playerSide(state);$('#player-side').disabled=state.phase!=='setup';$('#weather').value=state.weather;$('#weather').disabled=state.phase==='ended'||locked;$('#time-of-day').value=state.timeOfDay;$('#time-of-day').disabled=state.phase==='ended'||locked;$('#ai-difficulty').value=state.aiDifficulty;$('#ai-difficulty').disabled=state.phase==='ended'||locked;$('#ai-difficulty').closest('label').hidden=auto;$('#all-auto').parentElement.lastChild.textContent=` ${factionName(state,playerSide(state))}全队自动交战`;$('#all-auto').checked=state.units.filter(u=>u.side===playerSide(state)&&!TYPES[u.type].support&&u.hp>0).every(u=>u.autoEngage);$('#all-auto').disabled=state.phase==='ended'||locked;$('#deploy').disabled=state.phase!=='setup'||isHistorical(state);$('#deploy').textContent=isHistorical(state)?'历史任务 · 固定兵力':auto?'＋ 部署双方单位':'＋ 部署单位';
+  chartColors=chartTheme(state);document.documentElement.dataset.chartTheme=state.chartTheme;$('#chart-theme').value=state.chartTheme;$('#model-scale').value=state.modelScale;$('#player-side').innerHTML=['blue','red'].map(side=>`<option value="${side}">${factionInfo(state,side).flag} ${factionName(state,side)}</option>`).join('');$('#player-side').value=playerSide(state);$('#player-side').disabled=state.phase!=='setup';$('#weather').value=state.weather;$('#weather').disabled=state.phase==='ended'||locked;$('#time-of-day').value=state.timeOfDay;$('#time-of-day').disabled=state.phase==='ended'||locked;$('#ai-difficulty').value=state.aiDifficulty;$('#ai-difficulty').disabled=state.phase==='ended'||locked;$('#ai-difficulty').closest('label').hidden=auto;$('#all-auto').parentElement.lastChild.textContent=` ${factionName(state,playerSide(state))}全队自由开火`;$('#all-auto').checked=state.units.filter(u=>u.side===playerSide(state)&&!TYPES[u.type].support&&u.hp>0).every(u=>freeFireEnabled(u));$('#all-auto').disabled=state.phase==='ended'||locked;$('#deploy').disabled=state.phase!=='setup'||isHistorical(state);$('#deploy').textContent=isHistorical(state)?'历史任务 · 固定兵力':auto?'＋ 部署双方单位':'＋ 部署单位';
   $('#map-hint').textContent=locked?'AI 接管指挥 · 点击观察 · 拖动平移':'左键框选 · Shift 加选 · 右键群体航点 · Alt/中键拖动平移';canvas.setAttribute('aria-label',locked?'2D 战术海图，AI 观察模式。':'2D 战术海图：左键框选，Shift 加选，右键下达群体航点，Alt 或中键拖动平移。');
   const contacts=viewContacts(),friendlies=state.units.filter(u=>u.side===side&&!u.exited),editingRed=state.phase==='setup'&&freeDeploy(state)||globalObserver(),reds=state.units.filter(u=>u.side===other&&!u.exited);
   $('#fleet-tab').innerHTML=`${sideLabel}编队 <span id="fleet-count">${friendlies.filter(u=>u.hp>0).length}</span>`;
@@ -179,7 +185,7 @@ function groupPanel(u){
   if(aiControlsLocked()||u.side!==playerSide(state)&&state.phase!=='setup')return '';
   const ids=selectionIds(),members=ids.map(id=>unitById(state,id)),air=members.every(v=>airborne(v)&&v.flightState==='airborne'),modeNames={mission:'作战计划',ai:'单独 AI 接管',follow:'目标跟随',auto:'作战计划',manual:'手动指挥',escort:'舰船护航',group:'机群协同',independent:'独立行动'},leader=unitById(state,u.leader);
   const leaders=state.units.filter(v=>v.side===u.side&&v.hp>0&&!v.exited&&!v.leader&&(TYPES[v.type].domain==='surface'||air&&ids.includes(v.id)));
-  return `<div class="group-control"><div class="section-label"><span>${ids.length>1?`群体指挥 · ${ids.length} 个单位`:'协同指挥'}</span>${ids.length>1?'<button data-group="clear">清除多选</button>':''}</div><p>${modeNames[u.commandMode]||'作战计划'}${leader?` · 跟随 ${escape(leader.name)}`:''}</p>${ids.length>1?'<div class="command-row"><button data-command="route">群体航点</button><button data-group="attack" '+(!target?'disabled':'')+'>集中攻击</button><button data-group="stop">全体待命</button></div>':''}<label class="control-select">护航舰船／机群领队<select id="group-leader"><option value="">选择同方舰船或机群</option>${leaders.map(v=>`<option value="${v.id}">${escape(v.name)}${TYPES[v.type].domain==='air'?' · 机群领队':' · 舰船'}</option>`).join('')}</select></label><div class="group-actions"><button data-group="escort">跟随舰船</button>${air&&ids.length>1?'<button data-group="group">协同机群</button>':''}<button data-group="independent">独立行动</button><button data-group="resumeAI">恢复作战计划</button></div><small>左键拖框选中，Shift 加选；航点、速度、高度与返航作用于全部选中单位。协同机群向领队下令，跟随机群保持队形。</small></div>`;
+  return `<div class="group-control"><div class="section-label"><span>${ids.length>1?`群体指挥 · ${ids.length} 个单位`:'协同指挥'}</span>${ids.length>1?'<button data-group="clear">清除多选</button>':''}</div><p>${modeNames[u.commandMode]||'作战计划'}${leader?` · 跟随 ${escape(leader.name)}`:''}</p>${ids.length>1?'<div class="command-row"><button data-command="route">群体航点</button><button data-group="attack" '+(!target?'disabled':'')+'>集中攻击</button><button data-group="stop">全体待命</button></div>':''}<label class="control-select">护航舰船／机群领队<select id="group-leader"><option value="">选择同方舰船或机群</option>${leaders.map(v=>`<option value="${v.id}">${escape(v.name)}${TYPES[v.type].domain==='air'?' · 机群领队':' · 舰船'}</option>`).join('')}</select></label><div class="group-actions"><button data-group="escort">跟随舰船</button>${air&&ids.length>1?'<button data-group="group">协同机群</button>':''}<button data-group="independent">独立行动</button><button data-group="resumeAI">恢复作战计划</button></div><small>左键拖框选中，Shift 加选；自由开火、航点、速度、高度与返航作用于全部选中单位。协同机群向领队下令，跟随机群保持队形。</small></div>`;
 }
 
 function ww2Panel(u){
@@ -214,7 +220,7 @@ function renderInspector(){
     ${t.domain==='surface'&&u.side===playerSide(state)?`<button class="outline wide" data-command="formation" style="margin-top:8px;font-size:10px" ${!alive?'disabled':''}>指定旗舰 · 编队跟随</button>`:''}
     <div class="section-label"><span>武器与防护</span><small>WEAPONS</small></div>${c?`<div class="target-card"><div><span>${escape(c.label)}</span><button data-clear-target aria-label="取消目标">×</button></div><small>${distance(u,c).toFixed(1)} nm · ${Math.round(bearing(u,c))}° · ${qualityName(c)}</small></div>`:`<div class="empty-target">选择海图或接触列表中的${factionName(state,observerSide()==='blue'?'red':'blue')}目标。</div>`}${Object.entries(WEAPONS).filter(([key])=>t.weapons[key]>0).map(([key])=>{const w=weaponStats(u,key),check=c?fireCheck(state,u.id,c.id,key):{ok:false,error:'请选择目标'};return `<div class="weapon-row"><div class="weapon-label">${w.name}<small>${w.short} / ${w.minRange}–${w.range} nm</small>${key==='gun'&&c?`<small>预计命中 ${Math.round((gunAccuracy(state,u.id,c.id)?.chance||0)*100)}% · 可见 ${Math.round((gunAccuracy(state,u.id,c.id)?.visibility||0)*100)}%</small>`:''}${!check.ok?`<span class="weapon-check">${check.error}</span>`:''}</div><span class="weapon-qty">${String(u.weapons[key]).padStart(2,'0')}</span><button class="weapon-fire" data-fire="${key}" ${check.ok?'':'disabled'} title="${check.ok?'发射一枚':check.error}">发射</button></div>`;}).join('')}
     ${t.weapons.sam?`<label class="control-select">自卫保留弹药<select id="sam-reserve" ${!alive?'disabled':''}>${reserveValues.map(q=>`<option value="${q}" ${u.samReserve===q?'selected':''}>${q} 枚区域防空导弹</option>`).join('')}</select></label><p class="sensor-note">已占火控通道 ${state.missiles.filter(m=>m.shooter===u.id&&m.guidance==='semi').length} / ${t.channels}。保留弹药可用于自动拦截。</p>`:''}
-    ${!t.support?`<label class="check-row"><input type="checkbox" id="auto-engage" ${u.autoEngage?'checked':''} ${!alive?'disabled':''}> 自动交战 · 保留当前航线</label>`:''}<label class="check-row"><input type="checkbox" id="auto-defense" ${u.autoDefense?'checked':''} ${!alive||!t.decoys&&!t.ciws&&!t.weapons.sam&&!t.weapons.point?'disabled':''}> ${t.era==='ww2'?'自动高射炮防空':'自动防空与诱饵自卫'}</label><p class="sensor-note">${t.ciws?`近防剩余 ${u.ciws} 次 · `:''}${t.decoys?`诱饵剩余 ${u.decoys} 次`:''}</p>
+    <label class="check-row"><input type="checkbox" id="auto-defense" ${u.autoDefense?'checked':''} ${!alive||!t.decoys&&!t.ciws&&!t.weapons.sam&&!t.weapons.point?'disabled':''}> ${t.era==='ww2'?'自动高射炮防空':'自动防空与诱饵自卫'}</label><p class="sensor-note">${t.ciws?`近防剩余 ${u.ciws} 次 · `:''}${t.decoys?`诱饵剩余 ${u.decoys} 次`:''}</p>
     ${state.phase==='setup'&&!isHistorical(state)?`<button class="remove-unit" data-command="remove">撤回此单位 · 返还 ${t.cost} 部署点</button>`:''}<p class="position-note">${geographicMap(state)?formatGeo(geographicMap(state),u):`位置 ${u.x.toFixed(1)}, ${u.y.toFixed(1)} nm`} · 游戏参数</p>`;
   if(locked)$('#inspector').querySelectorAll('input,select,[data-sensor],[data-command],[data-fire],[data-deck-launch],[data-unit-custom],[data-wing-custom]').forEach(el=>el.disabled=true);
   if(groupLeaderValue&&$('#group-leader')?.querySelector(`option[value="${groupLeaderValue}"]`))$('#group-leader').value=groupLeaderValue;
@@ -230,7 +236,8 @@ document.addEventListener('click',e=>{
   if(b.id==='briefing-menu'){flow.currentBrief();return;}
   if(b.id==='auto-battle'||b.id==='auto-battle-mission'){flow.selection('ai');return;}
   if(autoUI.handleClick(b))return;
-  if(aiControlsLocked()&&b.matches('[data-unit-control],[data-unit-lock],[data-group],[data-sensor],[data-command],[data-fire],[data-deck-launch],[data-unit-custom],[data-wing-custom],[data-mission-order]')){toast('AI 正在接管指挥，可暂停观察状态');return;}
+  if(aiControlsLocked()&&b.matches('[data-unit-free-fire],[data-unit-control],[data-unit-lock],[data-group],[data-sensor],[data-command],[data-fire],[data-deck-launch],[data-unit-custom],[data-wing-custom],[data-mission-order]')){toast('AI 正在接管指挥，可暂停观察状态');return;}
+  if(b.dataset.unitFreeFire){toggleFreeFire(b.dataset.unitFreeFire);return;}
   if(b.dataset.widgetToggle){const key=b.dataset.widgetToggle;setWidgetOpen(key,$(`[data-widget="${key}"]`).classList.contains('is-collapsed'));}
   else if(b.id==='collapse-all'){const widgets=$$('[data-widget]:not(.hidden)'),open=widgets.every(el=>el.classList.contains('is-collapsed'));for(const el of widgets)setWidgetOpen(el.dataset.widget,open);}
   else if(b.id==='dock-toggle')setDockOpen($('.hud-dock').classList.contains('is-collapsed'));
@@ -267,8 +274,7 @@ document.addEventListener('change',e=>{
   if(e.target.dataset.lockChoice){lockChoices.set(e.target.dataset.lockChoice,e.target.value);return;}
   const u=unitById(state,selected),id=e.target.id;
   if(aiControlsLocked()&&(e.target.closest('#inspector')||['all-auto','weather','time-of-day','ai-difficulty'].includes(id))){lastInspector='';renderUI();return;}
-  if(id==='auto-engage'&&u)groupOrder({kind:'autoEngage',value:e.target.checked});
-  if(['auto-defense','datalink','jamming'].includes(id)&&u){u[{'auto-defense':'autoDefense','auto-engage':'autoEngage',datalink:'datalink',jamming:'jamming'}[id]]=e.target.checked;log(state,`${u.name} ${e.target.parentElement.textContent.trim()}${e.target.checked?'开启':'关闭'}`);}
+  if(['auto-defense','datalink','jamming'].includes(id)&&u){u[{'auto-defense':'autoDefense',datalink:'datalink',jamming:'jamming'}[id]]=e.target.checked;log(state,`${u.name} ${e.target.parentElement.textContent.trim()}${e.target.checked?'开启':'关闭'}`);}
   if(id.startsWith('wing-')&&u&&e.target.value!=='custom')result(setDeckLoadout(state,u.id,id.slice(5),e.target.value==='auto'?null:e.target.value),'后续出动方案已保存');
   if(id==='unit-loadout'&&u&&e.target.value!=='custom')result(setLoadout(state,u.id,e.target.value),'配置已更改');
   if(id==='sub-depth'&&u){result(setDepth(state,u.id,e.target.value));if(state.phase==='running')scan(state);}
@@ -280,7 +286,7 @@ document.addEventListener('change',e=>{
   if(id==='aa-priority'){const rows=selectionIds().map(id=>setAAPriority(state,id,e.target.value));result(rows.find(r=>!r.ok)||{ok:true},'高射炮目标策略已更新');}
   if(['chart-theme','model-scale'].includes(id)){const key=id==='chart-theme'?'chartTheme':'modelScale';result(setPresentation(state,{[key]:e.target.value}));try{localStorage.setItem('seapower-presentation-v1',JSON.stringify({chartTheme:state.chartTheme,modelScale:state.modelScale}));}catch{}}
   if(id==='ww2-preset'){result(configureWW2Sandbox(state,e.target.value));replaceState(state);}
-  if(id==='all-auto'){for(const v of state.units.filter(v=>v.side===playerSide(state)))v.autoEngage=e.target.checked;log(state,`本方全队自动交战${e.target.checked?'开启':'关闭'}`);}
+  if(id==='all-auto'){for(const v of state.units.filter(v=>v.side===playerSide(state)&&v.hp>0&&!v.exited))setFreeFire(state,v.id,e.target.checked);log(state,`本方全队自由开火${e.target.checked?'开启':'关闭'}`);}
   if(['weather','time-of-day','ai-difficulty'].includes(id)){result(setBattleConditions(state,{[{'weather':'weather','time-of-day':'timeOfDay','ai-difficulty':'aiDifficulty'}[id]]:e.target.value}));}
   if(state.phase==='running'&&['weather','altitude','jamming','datalink'].includes(id))scan(state);lastInspector='';renderUI();
 });

@@ -23,7 +23,7 @@ export function commandUnits(s,ids,order,api){
       }else if(order.kind==='return')r=api.types[u.type].domain==='air'?api.returnToBase(s,u.id):{ok:false,error:'仅飞机可返航'};
       else if(order.kind==='speed')r=api.setSpeed(s,u.id,order.value);
       else if(order.kind==='altitude')r=api.setAltitude(s,u.id,order.value);
-      else if(order.kind==='autoEngage'){u.autoEngage=!!order.value;}
+      else if(order.kind==='autoEngage'){r=api.setFreeFire(s,u.id,!!order.value);}
       else if(order.kind==='independent'||order.kind==='resumeAI'||order.kind==='stop'){
         if(api.types[u.type].domain==='air'&&u.flightState!=='airborne'){r={ok:false,error:'飞机正在返航或整备'};}
         else {u.leader=null;u.offset=null;u.manualTarget=null;u.lockedTarget=u.aiTarget=null;u.combatGoal=null;u.commandMode=order.kind==='resumeAI'?'mission':order.kind==='independent'?'independent':'manual';if(order.kind==='independent')for(const v of s.units.filter(v=>v.leader===u.id&&v.commandMode==='group')){v.leader=null;v.offset=null;v.commandMode='independent';}if(order.kind==='stop'){u.route=[];if(api.types[u.type].domain!=='air'||api.types[u.type].rotary)u.speed=0;}}
@@ -31,7 +31,7 @@ export function commandUnits(s,ids,order,api){
         const c=s.contacts[u.side][order.targetId];
         if(!c||s.time-c.time>6||c.quality!=='track')r={ok:false,error:'攻击需要有效目标报告'};
         else if(!Object.keys(u.weapons).some(k=>u.weapons[k]>0&&api.weaponStats(u,k).targets.includes(c.domain)))r={ok:false,error:'无适用武器'};
-        else {r=api.types[u.type].domain==='land'||u.leader&&ids.includes(u.leader)?{ok:true}:api.setRoute(s,u.id,{x:c.x,y:c.y});if(r.ok){u.manualTarget=c.id;u.autoEngage=true;}}
+        else {r=api.types[u.type].domain==='land'||u.leader&&ids.includes(u.leader)?{ok:true}:api.setRoute(s,u.id,{x:c.x,y:c.y});if(r.ok){u.manualTarget=c.id;u.autoEngage=true;u.fireAtWill=true;}}
       }else return {ok:false,error:'未知群体指令'};
       if(r.ok)applied.push(u.id);else skipped.push({id:u.id,name:u.name,error:r.error});
     }

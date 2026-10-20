@@ -1,8 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import {createState,createAutoBattle,TYPES,SCENARIOS,serialize} from '../dist/engine.js?v=0.13.0';
-import {MODEL_PROFILES,modelFor,seaSnapshot} from '../dist/sea-scene-data.js?v=0.13.0';
+import {createState,createAutoBattle,TYPES,SCENARIOS,serialize} from '../dist/engine.js?v=0.13.1';
+import {MODEL_PROFILES,modelFor,seaSnapshot} from '../dist/sea-scene-data.js?v=0.13.1';
 import {GLTFLoader} from '../dist/vendor/three/addons/loaders/GLTFLoader.js';
 import {Box3,Vector3} from '../dist/vendor/three/three.module.js';
 
