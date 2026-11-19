@@ -1,14 +1,14 @@
 # Sea Power · 海空战模拟平台
 
-[在线游玩 · GitHub Pages](https://dns0129.github.io/Sea_Power/) · [源码仓库](https://github.com/dns0129/Sea_Power)
+[宣传页 · GitHub Pages](https://dns0129.github.io/Sea_Power/) · [在线游玩](https://dns0129.github.io/Sea_Power/home.html) · [源码仓库](https://github.com/dns0129/Sea_Power)
 
-GitHub Pages 使用下方自动发布流程；首次发布需在仓库 **Settings → Pages → Build and deployment → Source** 选择 **GitHub Actions**。之后推送 main 会先运行测试，再发布 dist/。不同域名的浏览器存档相互独立，可通过游戏内 JSON 导出／导入迁移。
+公开页面的根地址是宣传站，游戏从 `home.html` 进入。GitHub Pages 使用下方自动发布流程；首次发布需在仓库 **Settings → Pages → Build and deployment → Source** 选择 **GitHub Actions**。之后推送 main 会先运行测试，再发布 dist/。不同域名的浏览器存档相互独立，可通过游戏内 JSON 导出／导入迁移。
 
 原创海空联合战策略沙盘，提供 2D 战术海图与 3D 海面观察，参考 [Sea Power 的传感器、海空协同、实时暂停与时间压缩玩法](https://store.steampowered.com/app/1286220/)。包含真实海岸线上的历史单人任务与虚构海域沙盘；装备和胜负条件使用游戏平衡参数，不复用原游戏资源。
 
 ## 启动
 
-macOS 双击 `启动海空战.command`，或运行 `npm start`。需要 Node.js 18 或以上，无须安装依赖。打开 http://127.0.0.1:8789；关闭终端或 Ctrl+C 停止服务。端口冲突时使用 `SEAPOWER_PORT=8790 npm start`。
+macOS 双击 `启动海空战.command`，或运行 `npm start`。需要 Node.js 18 或以上，无须安装依赖。宣传页在 http://127.0.0.1:8789 ，游戏在 http://127.0.0.1:8789/home.html ；双击启动脚本会直接打开游戏。关闭终端或 Ctrl+C 停止服务。端口冲突时使用 `SEAPOWER_PORT=8790 npm start`。
 
 源码在 `dist/`，无需构建。`server.mjs` 仅提供本机静态页面；Sites 使用 `.openai/hosting.json` 发布。
 

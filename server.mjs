@@ -21,4 +21,4 @@ const server=http.createServer(async(req,res)=>{
   }catch{res.writeHead(404);res.end('Not found');}
 });
 server.on('error',e=>{console.error(e.code==='EADDRINUSE'?`端口 ${port} 已占用。请设置 SEAPOWER_PORT 使用其他端口。`:e.message);process.exit(1);});
-server.listen(port,'127.0.0.1',()=>{const url=`http://127.0.0.1:${port}`;console.log(`Sea Power · 海空战模拟平台\n${url}\n按 Ctrl+C 关闭服务。`);if(process.argv.includes('--open'))spawn(process.platform==='darwin'?'open':process.platform==='win32'?'explorer':'xdg-open',[url],{stdio:'ignore'}).on('error',()=>{});});
+server.listen(port,'127.0.0.1',()=>{const url=`http://127.0.0.1:${port}`;console.log(`Sea Power · 海空战模拟平台\n宣传页 ${url}\n进入游戏 ${url}/home.html\n按 Ctrl+C 关闭服务。`);if(process.argv.includes('--open'))spawn(process.platform==='darwin'?'open':process.platform==='win32'?'explorer':'xdg-open',[`${url}/home.html`],{stdio:'ignore'}).on('error',()=>{});});

@@ -1,2 +1,375 @@
 <!doctype html>
-<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="refresh" content="0;url=./home.html?v=0.13.1"><title>Sea Power · 海空战模拟平台</title><style>body{background:#0d151d;color:#dce7ea;font:14px sans-serif;padding:32px}a{color:#80cbb8}</style></head><body><p><a href="./home.html?v=0.13.1">进入海空战模拟平台主页 →</a></p></body></html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#080a0d">
+  <meta name="description" content="Sea Power 海空战模拟平台。先把航迹确认下来：浏览器里的原创海空战术沙盘，2D 航海图与 3D 海面共用同一场战局。">
+  <meta property="og:title" content="Sea Power · 先把航迹确认下来">
+  <meta property="og:description" content="原创海空战术沙盘。2D 航海图上下令，3D 海面上查看同一场战局。接触要确认，弹药、燃油和甲板都会用完。">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://dns0129.github.io/Sea_Power/">
+  <meta property="og:locale" content="zh_CN">
+  <link rel="canonical" href="https://dns0129.github.io/Sea_Power/">
+  <link rel="icon" href="./favicon.svg" type="image/svg+xml">
+  <title>Sea Power · 海空战模拟平台</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Noto+Sans+SC:wght@400;500&family=Noto+Serif+SC:wght@600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="./promo.css">
+</head>
+<body>
+  <a class="skip" href="#content">跳到正文</a>
+  <div class="sheet-frame" aria-hidden="true"><span></span><span></span><span></span><span></span></div>
+
+  <header class="nav">
+    <div class="wrap nav-inner">
+      <a class="brand" href="#top" aria-label="回到封面">
+        <svg width="22" height="22" viewBox="0 0 32 32" aria-hidden="true">
+          <circle cx="16" cy="16" r="11" fill="none" stroke="#c6a36a" stroke-width="1.2"/>
+          <path d="M16 5v6M16 16l5 8-5-2.2L11 24z" fill="none" stroke="#efeae1" stroke-width="1.2"/>
+        </svg>
+        <span>SEA POWER</span>
+      </a>
+      <nav class="nav-links" aria-label="页面">
+        <a href="#doctrine" data-nav="02  原则">原则</a>
+        <a href="#modes" data-nav="03  方式">方式</a>
+        <a href="#seas" data-nav="04  海域">海域</a>
+        <a href="#limits" data-nav="05  限制">限制</a>
+        <a href="#views" data-nav="06  双视图">双视图</a>
+      </nav>
+      <span class="sheet-label" data-sheet-label hidden>01  封面</span>
+      <a class="btn btn-fill" href="./home.html">进入推演 <span class="arrow" aria-hidden="true">→</span></a>
+    </div>
+  </header>
+
+  <main id="content">
+    <section class="hero wrap" id="top" data-sheet="01  封面">
+      <div class="hero-copy">
+        <p class="sec-no">01 — 封面</p>
+        <p class="kicker">海空战术沙盘</p>
+        <h1>先把航迹<br>确认下来。</h1>
+        <p class="lede">原创海空战术沙盘。同一场战局可以铺在航海图上指挥，也可以落到三维海面上看舰位、天气和损伤。雷达与目视只提供报告，报告会过期；弹药、燃油和甲板容量都会用完。</p>
+        <div class="hero-actions">
+          <a class="btn btn-fill" href="./home.html">进入推演 <span class="arrow" aria-hidden="true">→</span></a>
+          <a class="btn btn-line" href="#seas">七片海</a>
+        </div>
+        <ul class="hero-facts">
+          <li>浏览器内运行</li>
+          <li>无需安装</li>
+          <li>2D 海图 / 3D 海面</li>
+          <li>暂停，或 1–120 倍</li>
+        </ul>
+      </div>
+
+      <figure class="plot">
+        <svg viewBox="0 0 600 700" role="img" aria-label="示意战术海图：己方舰艇航向东北，一条已确认的敌方航迹，另一个仍在确认的接触。">
+          <rect width="600" height="700" fill="#0c1218"/>
+          <g stroke="rgba(239,234,225,0.06)" stroke-width="1">
+            <path d="M60 40V660M120 40V660M180 40V660M240 40V660M300 40V660M360 40V660M420 40V660M480 40V660M540 40V660"/>
+            <path d="M30 80H570M30 150H570M30 220H570M30 290H570M30 360H570M30 430H570M30 500H570M30 570H570M30 640H570"/>
+          </g>
+          <g fill="#17211c" stroke="#c6a36a" stroke-width="1.15">
+            <path d="M0 120 L0 700 L128 700 L156 628 L108 548 L164 470 L124 392 L86 330 L148 248 L78 168 L0 150 Z"/>
+            <path d="M468 78 C492 42 534 26 568 38 C598 50 586 78 596 98 C604 116 572 132 538 124 C504 116 486 100 468 78 Z"/>
+          </g>
+          <g fill="none" stroke="rgba(158,201,191,0.35)" stroke-width="1">
+            <circle cx="250" cy="470" r="70"/>
+            <circle cx="250" cy="470" r="140"/>
+            <circle cx="250" cy="470" r="210"/>
+          </g>
+          <g fill="#8d877c" font-family="IBM Plex Mono, monospace" font-size="11">
+            <text x="324" y="468">10 nm</text>
+            <text x="394" y="468">20</text>
+            <text x="464" y="468">30</text>
+          </g>
+          <path d="M250 470 L360 360" fill="none" stroke="rgba(198,163,106,0.45)" stroke-width="1" stroke-dasharray="1 6"/>
+          <path d="M150 600 L190 540 L250 470" fill="none" stroke="#9ec9bf" stroke-width="1.4"/>
+          <path d="M430 286 L392 326 L360 360" fill="none" stroke="#c56a58" stroke-width="1.3" stroke-dasharray="4 5"/>
+          <path class="route-dash" d="M150 600 L190 540 L250 470" fill="none" stroke="#efeae1" stroke-width="1.4"/>
+          <g transform="translate(250 470) rotate(-42)">
+            <polygon points="0,-12 7,9 -7,9" fill="#efeae1"/>
+          </g>
+          <g transform="translate(360 360) rotate(45)">
+            <rect x="-6.5" y="-6.5" width="13" height="13" fill="none" stroke="#c56a58" stroke-width="1.5"/>
+          </g>
+          <g transform="translate(468 196)">
+            <circle class="ring-ping" r="14" fill="none" stroke="#c56a58" stroke-width="1"/>
+            <circle r="14" fill="none" stroke="#c56a58" stroke-width="1" stroke-dasharray="2 3"/>
+            <g transform="rotate(45)">
+              <rect x="-5" y="-5" width="10" height="10" fill="none" stroke="#c56a58" stroke-width="1.3"/>
+            </g>
+          </g>
+          <g fill="#efeae1" font-family="IBM Plex Mono, monospace" font-size="12">
+            <text x="372" y="352">A-1</text>
+            <text x="486" y="192">B-2</text>
+          </g>
+          <g fill="none" stroke="#c6a36a" stroke-width="1.1">
+            <circle cx="78" cy="78" r="22"/>
+            <path d="M78 58 V74 M78 98 V86"/>
+          </g>
+          <text x="78" y="54" text-anchor="middle" fill="#c6a36a" font-family="IBM Plex Mono, monospace" font-size="11">N</text>
+          <g stroke="#efeae1" stroke-width="1" fill="#9a9488" font-family="IBM Plex Mono, monospace" font-size="11">
+            <path d="M36 662 H106"/>
+            <path d="M36 656 V668 M106 656 V668"/>
+            <text x="116" y="666">10 nm</text>
+          </g>
+        </svg>
+        <figcaption class="plot-meta">
+          <div><span>OWN</span><b>18 kn · 048°</b></div>
+          <div><span>A-1</span><b>已确认 · 22 nm</b></div>
+          <div><span>B-2</span><b>正在确认</b></div>
+          <div><span>PLOT</span><b>示意 · 非截图</b></div>
+        </figcaption>
+      </figure>
+    </section>
+
+    <section class="doctrine" id="doctrine" data-sheet="02  原则">
+      <div class="wrap">
+        <p class="sec-no">02 — 原则</p>
+        <h2>看不见的，就不能打。</h2>
+        <p class="doctrine-copy">接触要从「正在确认」变成有效航迹。过期的报告只配记得它最后出现的位置，不配用来开火。电子支援给的是一片粗略区域，不是一个可以瞄准的点。</p>
+        <div class="stats">
+          <div>
+            <p class="stat-num">216</p>
+            <span>类平台</span>
+            <small>188 个现代型号，28 个任务型。</small>
+          </div>
+          <div>
+            <p class="stat-num">7</p>
+            <span>片有名字的海</span>
+            <small>四场二战，三场近现代任务。</small>
+          </div>
+          <div>
+            <p class="stat-num">4</p>
+            <span>种进入方式</span>
+            <small>历史任务、二战海战、AI 对战、自由沙盘。</small>
+          </div>
+          <div>
+            <p class="stat-num">120×</p>
+            <span>时间压缩</span>
+            <small>亦可暂停，或用 1、10、30 倍。</small>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="modes" data-sheet="03  方式">
+      <div class="wrap">
+        <div class="section-head">
+          <p class="sec-no">03 — 方式</p>
+          <h2>四种进入战场的方式</h2>
+          <p>从主页选一种。任务简报分四页：战斗简介、剧本细节、部署、任务目标。读完再开始推演。</p>
+        </div>
+        <ol class="mode-list">
+          <li>
+            <span class="mode-no">01</span>
+            <div>
+              <h3>历史任务</h3>
+              <p>三场有时限的单人任务：布比延封锁线、萨汉德号遭遇战、圣卡洛斯登陆掩护。兵力是固定的，海岸来自公有领域的真实岸线。开战前可以选择扮演的一方，胜负按该方的任务计算。</p>
+              <p class="mode-meta">固定兵力 · 真实岸线 · 30–40 分钟</p>
+            </div>
+          </li>
+          <li>
+            <span class="mode-no">02</span>
+            <div>
+              <h3>二战海战</h3>
+              <p>中途岛、丹麦海峡、瓜达尔卡纳尔、萨马岛，外加一张可以自己部署的海。使用目视、舰炮、直航鱼雷、烟幕和有限的舰载航空。没有导弹，也没有现代数据链。双方都可以扮演。</p>
+              <p class="mode-meta">舰炮与航空 · 45 分钟至 4 小时</p>
+            </div>
+          </li>
+          <li>
+            <span class="mode-no">03</span>
+            <div>
+              <h3>AI 对战</h3>
+              <p>双方各自部署，然后交给指挥。业余、专业、王牌改变的是反应和选择，不增加生命、弹药或情报。一套预设放在虚构训练海域，前沿大约相距 250 公里——那是搜索的起点，不是开火的距离。相同的部署、种子和风格，会走出同一场仗。</p>
+              <p class="mode-meta">可重复 · 种子 · 战报</p>
+            </div>
+          </li>
+          <li>
+            <span class="mode-no">04</span>
+            <div>
+              <h3>自由沙盘</h3>
+              <p>从现代装备库里组一支舰队，或进入没有强制胜负的试验场。可以按国家、任务和技术阶段筛选。射程、载弹、结构和命中都是平衡参数，不代表真实性能。</p>
+              <p class="mode-meta">216 类平台 · 双方各 600 点</p>
+            </div>
+          </li>
+        </ol>
+      </div>
+    </section>
+
+    <section id="seas" data-sheet="04  海域">
+      <div class="wrap">
+        <div class="section-head">
+          <p class="sec-no">04 — 海域</p>
+          <h2>七片有名字的海</h2>
+          <p>阵位、兵力和时限都按玩法做过改编。历史不会按钟点强制发生，胜负由这场推演自己决定。</p>
+        </div>
+        <div class="sea-grid">
+          <article class="sea-card feature">
+            <header><span>1942.06.04</span><span>进阶 · 4 小时</span></header>
+            <h3>中途岛</h3>
+            <p>航母还没被看见。派出侦察，用早期雷达预警空袭，再组织俯冲轰炸和鱼雷。四小时内压制至少三艘对方航母，并守住岛屿与己方甲板。</p>
+            <p class="sea-foot">搜索 · 甲板 · 航空打击</p>
+          </article>
+          <article class="sea-card">
+            <header><span>1941.05.24</span><span>入门 · 45 分钟</span></header>
+            <h3>丹麦海峡</h3>
+            <p>拦截，击伤，然后把接触保持住。至少留住一艘还能作战的主力舰。</p>
+            <p class="sea-foot">舰炮 · 跟踪</p>
+          </article>
+          <article class="sea-card">
+            <header><span>1942.11.14</span><span>进阶 · 90 分钟</span></header>
+            <h3>瓜达尔卡纳尔</h3>
+            <p>夜间进入铁底湾。雷达可以跟踪，目视会被炮口焰打断。保住机场，并留下一艘战列舰。</p>
+            <p class="sea-foot">夜战 · 雷达</p>
+          </article>
+          <article class="sea-card">
+            <header><span>1944.10.25</span><span>挑战 · 90 分钟</span></header>
+            <h3>萨马岛</h3>
+            <p>以烟幕、鱼雷和舰载机迟滞追兵，把至少四艘护航航母带进南侧撤离区。</p>
+            <p class="sea-foot">烟幕 · 撤退</p>
+          </article>
+          <article class="sea-card">
+            <header><span>1982.05.21</span><span>挑战 · 35 分钟</span></header>
+            <h3>圣卡洛斯</h3>
+            <p>护送两艘运输船进入锚地，连续卸载，并挡住三波空袭。</p>
+            <p class="sea-foot">护航 · 锚地</p>
+          </article>
+          <article class="sea-card">
+            <header><span>1991.01.29</span><span>入门 · 30 分钟</span></header>
+            <h3>布比延</h3>
+            <p>在封锁线上截住正在撤退的舰艇。至少击沉三艘，至多放走一艘。</p>
+            <p class="sea-foot">封锁 · 脱离线</p>
+          </article>
+          <article class="sea-card">
+            <header><span>1988.04.18</span><span>进阶 · 40 分钟</span></header>
+            <h3>萨汉德</h3>
+            <p>把目标结构打到四成以下，再让水面指挥舰抵达撤离区。</p>
+            <p class="sea-foot">打击 · 脱离</p>
+          </article>
+          <article class="sea-card sea-open">
+            <header><span>另外</span><span>600 点</span></header>
+            <h3>一张空白的海</h3>
+            <p>二战自定义，或现代试验场。双方各 600 点。没有强制胜负的那一张，用来试装备、试指挥、试一种打法。</p>
+            <a class="btn btn-line" href="./home.html">从主页进入 <span class="arrow" aria-hidden="true">→</span></a>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section id="limits" data-sheet="05  限制">
+      <div class="wrap">
+        <div class="section-head">
+          <p class="sec-no">05 — 限制</p>
+          <h2>桥楼上真正算数的东西</h2>
+          <p>这些限制对玩家和 AI 一样。强度不会偷偷加血，也不会多发一枚弹。</p>
+        </div>
+        <ol class="limit-list">
+          <li>
+            <span class="sec-no">01</span>
+            <h3>航迹</h3>
+            <p>确认需要时间。一条报告若不再更新，很快就不能再依它发射。失联之后，只能前往最后出现的位置，不能跟着隐藏的真实坐标。</p>
+          </li>
+          <li>
+            <span class="sec-no">02</span>
+            <h3>环境</h3>
+            <p>晴、雨、雾、风暴，以及昼夜，会改写目视距离和舰炮命中率。烟幕遮住光学观察，挡不住雷达。测距仪会随命中而损坏，已飞出的齐射仍保留发射时的精度。</p>
+          </li>
+          <li>
+            <span class="sec-no">03</span>
+            <h3>甲板与燃油</h3>
+            <p>放飞有间隔，空中有容量。舰体伤得太重就停止放飞。返航可以补油和弹药，不能补回损失的飞机，也不能治好结构。</p>
+          </li>
+          <li>
+            <span class="sec-no">04</span>
+            <h3>指挥</h3>
+              <p>航点、编队、护航和锁定都可以手动下达，也可以把单位交给任务计划或&nbsp;AI。自由开火只会打已经发现、而且武器条件允许的目标。</p>
+          </li>
+        </ol>
+      </div>
+    </section>
+
+    <section id="views" data-sheet="06  双视图">
+      <div class="wrap">
+        <div class="section-head">
+          <p class="sec-no">06 — 双视图</p>
+          <h2>同一场仗，两张图。</h2>
+          <p>进入战场后默认是三维海面。海图负责下令，海面负责看你下令之后的结果。两边共用选中单位和战局。</p>
+        </div>
+        <div class="view-grid">
+          <div>
+            <div class="stage stage-2d">
+              <span class="stage-cap">2D · 战术海图</span>
+              <svg viewBox="0 0 640 420" aria-hidden="true">
+                <rect width="640" height="420" fill="#0c1820"/>
+                <g stroke="rgba(239,234,225,0.07)" stroke-width="1">
+                  <path d="M40 30 V390 M110 30 V390 M180 30 V390 M250 30 V390 M320 30 V390 M390 30 V390 M460 30 V390 M530 30 V390 M600 30 V390"/>
+                  <path d="M20 50 H620 M20 120 H620 M20 190 H620 M20 260 H620 M20 330 H620 M20 400 H620"/>
+                </g>
+                <path d="M0 40 L0 420 L150 420 L190 340 L140 260 L200 180 L120 90 L0 70 Z" fill="#16302c" stroke="#8d7350" stroke-width="1.2"/>
+                <circle cx="250" cy="250" r="90" fill="none" stroke="rgba(158,201,191,0.45)" stroke-dasharray="3 5"/>
+                <path d="M230 300 L280 250 L340 210" fill="none" stroke="#9ec9bf" stroke-width="1.5"/>
+                <rect x="224" y="294" width="12" height="12" fill="none" stroke="#9ec9bf" stroke-width="1.5"/>
+                <g transform="translate(340 210) rotate(45)"><rect x="-6" y="-6" width="12" height="12" fill="none" stroke="#c56a58" stroke-width="1.5"/></g>
+                <g fill="#9a9488" font-family="IBM Plex Mono, monospace" font-size="12">
+                  <text x="500" y="36">X 084</text>
+                  <text x="500" y="396">Y 126 nm</text>
+                </g>
+              </svg>
+            </div>
+            <div class="view-copy">
+              <h3>下令在海图上</h3>
+              <p>部署、框选、航点和探测圈都在这里。历史任务的海岸用真实岸线裁切，水面单位不能穿陆。海图可以换成夜航、白色航海图或深海蓝。</p>
+            </div>
+          </div>
+          <div>
+            <div class="stage stage-3d" role="img" aria-label="黎明海平线上的舰船剪影，示意三维海面，不是游戏截图。">
+              <span class="stage-cap">3D · 海面</span>
+              <div class="sky"></div>
+              <div class="sun" aria-hidden="true"></div>
+              <div class="water"></div>
+              <svg class="craft" viewBox="0 0 48 16" aria-hidden="true">
+                <path d="M2 10 L18 8 L30 3 L27 8 L46 9 L27 11 Z" fill="#efeae1"/>
+              </svg>
+              <div class="ship-wrap">
+                <svg viewBox="0 0 520 100" aria-hidden="true">
+                  <path fill="#0c1014" d="M24 58 L78 74 L430 74 L492 60 L508 50 L490 44 L430 48 L92 48 L24 56 Z"/>
+                  <path fill="#0c1014" d="M248 48 L248 30 L292 30 L300 48 Z M262 30 L262 16 L278 16 L278 30 Z M268 16 L268 8 L272 8 L272 16 Z"/>
+                </svg>
+              </div>
+            </div>
+            <div class="view-copy">
+              <h3>结果在海面上</h3>
+              <p>靠近看外形、航迹、天气和关键损伤。模型是原创的年代原型，不是某一艘舰的精确复刻。默认真实比例，也可以把舰机统一放大十二倍。没有 WebGL 时，海图仍然能打完。</p>
+            </div>
+          </div>
+        </div>
+        <p class="view-note">上面两张是插画，不是游戏画面。进了战场才会加载三维模块。</p>
+      </div>
+    </section>
+
+    <section class="close" id="play" data-sheet="07  进入">
+      <div class="wrap">
+        <p class="sec-no">07 — 进入</p>
+        <h2>推演在这台浏览器里完成。</h2>
+        <p class="lede">不需要安装，也不需要账号。战局保存在这台浏览器里，换机器时带走一份 JSON。</p>
+        <a class="btn btn-fill" href="./home.html">进入推演 <span class="arrow" aria-hidden="true">→</span></a>
+        <p class="close-meta">v0.13.1 · 源码公开</p>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <div class="wrap foot">
+      <div class="foot-brand">
+        <strong>SEA POWER</strong>
+        <span>海空战模拟平台</span>
+      </div>
+      <p class="disclaimer">本作为原创战术沙盘。传感器、海空协同、暂停与时间压缩的玩法有所借鉴，模型和数值不使用其他游戏的资源。装备性能、命中和载弹均为平衡参数，不代表真实装备。历史任务的兵力、阵位和时限做过玩法改编。虚构对战不用于推断现实冲突。</p>
+      <a href="https://github.com/dns0129/Sea_Power">源码</a>
+    </div>
+  </footer>
+  <script src="./promo.js" defer></script>
+</body>
+</html>
