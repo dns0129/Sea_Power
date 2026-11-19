@@ -1,3 +1,5 @@
+if (location.search.indexOf("enter=1") !== -1) history.replaceState(null, "", location.pathname);
+
 const label = document.querySelector("[data-sheet-label]");
 const sections = [...document.querySelectorAll("[data-sheet]")];
 const links = [...document.querySelectorAll("[data-nav]")];
